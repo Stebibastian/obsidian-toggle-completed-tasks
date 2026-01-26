@@ -47,8 +47,9 @@ body.hide-completed-tasks .markdown-source-view.mod-cm6 .HyperMD-task-line[data-
 
 /* "All tasks completed" message when list only has completed tasks */
 /* ONLY for normal lists, NOT for Tasks Plugin query results */
+/* Note: The actual message text is injected by main.js based on language */
 body.hide-completed-tasks .markdown-reading-view ul.contains-task-list:has(.task-list-item):not(:has(.task-list-item:not(.is-checked)))::after {
-    content: "-All tasks completed-";
+    /* content is set dynamically by plugin */
     display: block;
     color: #10b981;
     font-style: italic;
