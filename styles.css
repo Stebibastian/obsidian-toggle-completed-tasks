@@ -56,6 +56,24 @@ body.hide-completed-tasks .markdown-reading-view div[class*="block-language-task
     display: none !important;
 }
 
+/* Completion Message Link Styling */
+.toggle-tasks-completion-message {
+    transition: opacity 0.2s ease;
+}
+
+.toggle-tasks-completion-message:hover {
+    opacity: 0.7;
+}
+
+/* Add New Task Link Styling */
+.toggle-tasks-add-task-link {
+    transition: opacity 0.2s ease;
+}
+
+.toggle-tasks-add-task-link:hover {
+    opacity: 0.7;
+}
+
 /* Ribbon Icon Styling */
 .toggle-completed-tasks-ribbon {
     cursor: pointer;
