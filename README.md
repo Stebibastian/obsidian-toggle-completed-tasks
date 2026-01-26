@@ -1,77 +1,77 @@
 # Toggle Completed Tasks
 
-Ein Obsidian Plugin zum einfachen Ein- und Ausblenden erledigter Tasks mit einem Klick.
+An Obsidian plugin to easily show/hide completed tasks with one click.
 
 ## ✨ Features
 
-- **Ein-Klick Toggle**: Schalte erledigte Tasks mit einem Icon in der Ribbon-Leiste ein/aus
-- **Tasks Plugin Kompatibilität**: Funktioniert perfekt mit dem Tasks Plugin - erledigte Tasks bleiben in Query-Ergebnissen sichtbar
-- **Status-Symbole Unterstützung**: Nur `[x]` completed Tasks werden ausgeblendet, andere Status wie `[/]` (in progress), `[-]` (cancelled), `[>]` (forwarded) bleiben sichtbar
-- **"Alle Aufgaben erledigt" Nachricht**: Zeigt automatisch eine Nachricht wenn alle Tasks in einer Liste erledigt sind
-- **Command Palette**: Auch über die Command Palette steuerbar
+- **One-Click Toggle**: Show or hide completed tasks with a ribbon icon
+- **Tasks Plugin Compatible**: Works perfectly with the Tasks Plugin - completed tasks remain visible in query results
+- **Status Symbol Support**: Only `[x]` completed tasks are hidden, other status symbols like `[/]` (in progress), `[-]` (cancelled), `[>]` (forwarded) remain visible
+- **"All Tasks Completed" Message**: Automatically shows a message when all tasks in a list are completed
+- **Command Palette**: Also accessible via Command Palette
 
-## 🎯 Verwendung
+## 🎯 Usage
 
-### Ribbon Icon (empfohlen)
-Klicke auf das 👁️ Auge-Symbol in der linken Seitenleiste zum Umschalten.
+### Ribbon Icon (recommended)
+Click the 👁️ eye icon in the left sidebar to toggle between hiding/showing completed tasks.
 
 ### Command Palette
-1. Drücke `Cmd+P` (Mac) oder `Ctrl+P` (Windows/Linux)
-2. Tippe "Erledigte Tasks"
-3. Wähle den Command
+1. Press `Cmd+P` (Mac) or `Ctrl+P` (Windows/Linux)
+2. Type "Toggle Completed Tasks"
+3. Select the command
 
-## 🔧 Wie es funktioniert
+## 🔧 How it Works
 
-- **Plugin aktiviert** (Standard): Erledigte `[x]` Tasks werden ausgeblendet
-- **Plugin deaktiviert**: Alle Tasks werden angezeigt
+- **Plugin enabled** (default): Completed `[x]` tasks are hidden
+- **Plugin disabled**: All tasks are shown
 
 ### Tasks Plugin Integration
 
-Das Plugin ist speziell für die Verwendung mit dem [Tasks Plugin](https://github.com/obsidian-tasks-group/obsidian-tasks) optimiert:
+This plugin is specifically optimized for use with the [Tasks Plugin](https://github.com/obsidian-tasks-group/obsidian-tasks):
 
-- In normalen Task-Listen werden erledigte Tasks ausgeblendet
-- In Tasks Plugin Query-Ergebnissen (``` ```tasks ```) bleiben ALLE Tasks sichtbar
-- Andere Status-Symbole (`[/]`, `[-]`, `[>]`, etc.) bleiben immer sichtbar
+- In normal task lists, completed tasks are hidden
+- In Tasks Plugin query results (``` ```tasks ```), ALL tasks remain visible
+- Other status symbols (`[/]`, `[-]`, `[>]`, etc.) always remain visible
 
 ## 📦 Installation
 
-### Aus dem Community Plugin Store
-1. Öffne Einstellungen in Obsidian
-2. Navigiere zu "Community Plugins"
-3. Suche nach "Toggle Completed Tasks"
-4. Klicke auf "Installieren"
-5. Aktiviere das Plugin
+### From Community Plugin Store
+1. Open Settings in Obsidian
+2. Navigate to "Community Plugins"
+3. Search for "Toggle Completed Tasks"
+4. Click "Install"
+5. Enable the plugin
 
-### Manuell
-1. Lade die neueste Version von den [Releases](https://github.com/Stebibastian/obsidian-toggle-completed-tasks/releases) herunter
-2. Entpacke die Datei in dein `.obsidian/plugins/` Verzeichnis
-3. Lade Obsidian neu
-4. Aktiviere das Plugin in den Einstellungen
+### Manual Installation
+1. Download the latest release from [Releases](https://github.com/Stebibastian/obsidian-toggle-completed-tasks/releases)
+2. Extract to your `.obsidian/plugins/` directory
+3. Reload Obsidian
+4. Enable the plugin in Settings
 
-## 🛠️ Entwicklung
+## 🛠️ Development
 
 ```bash
-# Repository klonen
+# Clone repository
 git clone https://github.com/Stebibastian/obsidian-toggle-completed-tasks.git
 
-# In Verzeichnis wechseln
+# Navigate to directory
 cd obsidian-toggle-completed-tasks
 
-# Dependencies installieren
+# Install dependencies
 npm install
 
-# Plugin bauen
+# Build plugin
 npm run build
 ```
 
-## 📝 Lizenz
+## 📝 License
 
 MIT
 
 ## 🙏 Credits
 
-Entwickelt mit ❤️ für die Obsidian Community.
+Developed with ❤️ for the Obsidian Community.
 
 ## 🐛 Bug Reports & Feature Requests
 
-Bitte eröffne ein [Issue auf GitHub](https://github.com/Stebibastian/obsidian-toggle-completed-tasks/issues).
+Please open an [Issue on GitHub](https://github.com/Stebibastian/obsidian-toggle-completed-tasks/issues).
