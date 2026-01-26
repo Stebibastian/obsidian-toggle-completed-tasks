@@ -5,6 +5,7 @@ An Obsidian plugin to easily show/hide completed tasks with one click.
 ## ✨ Features
 
 - **One-Click Toggle**: Show or hide completed tasks with a ribbon icon
+- **Multi-Language Support**: Auto-detects Obsidian language (English & German supported, more coming soon)
 - **Tasks Plugin Compatible**: Works perfectly with the Tasks Plugin - completed tasks remain visible in query results
 - **Status Symbol Support**: Only `[x]` completed tasks are hidden, other status symbols like `[/]` (in progress), `[-]` (cancelled), `[>]` (forwarded) remain visible
 - **"All Tasks Completed" Message**: Automatically shows a message when all tasks in a list are completed
