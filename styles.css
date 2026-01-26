@@ -1,0 +1,70 @@
+/* Toggle Completed Tasks Plugin Styles */
+
+/* WICHTIG: Reihenfolge ist entscheidend!
+   Erst die AUSNAHMEN definieren (Tasks Queries), dann die allgemeinen Regeln */
+
+/* ===== AUSNAHMEN: Tasks Plugin Queries - dort ALLES anzeigen ===== */
+body.hide-completed-tasks .plugin-tasks-query-result .task-list-item.is-checked,
+body.hide-completed-tasks .plugin-tasks-query-result .task-list-item {
+    display: list-item !important;
+}
+
+/* Live Preview - Tasks in Code-Blöcken (Queries werden nicht beeinflusst) */
+body.hide-completed-tasks .markdown-source-view.mod-cm6 .HyperMD-codeblock .HyperMD-task-line[data-task="x"] {
+    display: block !important;
+}
+
+/* ===== ALLGEMEINE REGELN: Erledigte Tasks ausblenden ===== */
+/* Nur außerhalb von Tasks Plugin Queries */
+/* Andere Status-Symbole bleiben SICHTBAR: [/] in progress, [-] cancelled, [>] forwarded, etc. */
+
+/* Reading View - NUR [x] completed tasks ausblenden, NICHT andere Status, NICHT in Queries */
+body.hide-completed-tasks .markdown-reading-view .task-list-item.is-checked:not([data-task="/"]):not([data-task="-"]):not([data-task=">"]):not([data-task="<"]):not([data-task="?"]):not([data-task="!"]):not([data-task="*"]):not([data-task='"']):not([data-task="l"]):not([data-task="b"]):not([data-task="i"]):not([data-task="S"]):not([data-task="I"]):not([data-task="p"]):not([data-task="c"]):not([data-task="f"]):not([data-task="k"]):not([data-task="w"]):not([data-task="u"]):not([data-task="d"]) {
+    display: none !important;
+}
+
+/* Überschreibe die obere Regel für Tasks Plugin Queries (höhere Spezifität) */
+body.hide-completed-tasks .plugin-tasks-query-result .task-list-item.is-checked:not([data-task="/"]):not([data-task="-"]):not([data-task=">"]):not([data-task="<"]):not([data-task="?"]):not([data-task="!"]):not([data-task="*"]):not([data-task='"']):not([data-task="l"]):not([data-task="b"]):not([data-task="i"]):not([data-task="S"]):not([data-task="I"]):not([data-task="p"]):not([data-task="c"]):not([data-task="f"]):not([data-task="k"]):not([data-task="w"]):not([data-task="u"]):not([data-task="d"]) {
+    display: list-item !important;
+}
+
+/* Alternative: Wenn data-task nicht funktioniert, nur klassische checkboxen */
+body.hide-completed-tasks .markdown-reading-view .task-list-item.is-checked:not(.task-list-item[data-task]) {
+    display: none !important;
+}
+
+/* Überschreibe auch diese Regel für Tasks Plugin Queries */
+body.hide-completed-tasks .plugin-tasks-query-result .task-list-item.is-checked:not(.task-list-item[data-task]) {
+    display: list-item !important;
+}
+
+/* Live Preview - NUR [x] ausblenden */
+body.hide-completed-tasks .markdown-source-view.mod-cm6 .HyperMD-task-line[data-task="x"] {
+    display: none !important;
+}
+
+/* ===== NACHRICHTEN ===== */
+
+/* "Alle Aufgaben erledigt" Nachricht wenn Liste nur erledigte Tasks hat */
+/* NUR für normale Listen, NICHT für Tasks-Plugin Query-Ergebnisse */
+body.hide-completed-tasks .markdown-reading-view ul.contains-task-list:has(.task-list-item):not(:has(.task-list-item:not(.is-checked)))::after {
+    content: "-Alle Aufgaben erledigt-";
+    display: block;
+    color: #10b981;
+    font-style: italic;
+    padding: 0.5em 0;
+    text-align: left;
+}
+
+/* Unterdrücke die Nachricht in Plugin-Query-Results */
+body.hide-completed-tasks .markdown-reading-view .plugin-tasks-query-result ul::after,
+body.hide-completed-tasks .markdown-reading-view [class*="tasks-"] ul::after,
+body.hide-completed-tasks .markdown-reading-view div[class*="block-language-tasks"] ul::after {
+    content: none !important;
+    display: none !important;
+}
+
+/* Ribbon Icon Styling */
+.toggle-completed-tasks-ribbon {
+    cursor: pointer;
+}

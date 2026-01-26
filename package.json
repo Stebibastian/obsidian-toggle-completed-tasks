@@ -1,0 +1,26 @@
+{
+  "name": "obsidian-toggle-completed-tasks",
+  "version": "1.0.0",
+  "description": "Toggle visibility of completed tasks with one click. Fully compatible with Tasks Plugin.",
+  "main": "main.js",
+  "scripts": {
+    "build": "echo 'Build complete - main.js is already ready to use'"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "tasks",
+    "completed",
+    "toggle",
+    "productivity"
+  ],
+  "author": "Stebibastian",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Stebibastian/obsidian-toggle-completed-tasks.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Stebibastian/obsidian-toggle-completed-tasks/issues"
+  }
+}
