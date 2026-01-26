@@ -1,4 +1,4 @@
-const { Plugin } = require('obsidian');
+const { Plugin, Notice } = require('obsidian');
 
 module.exports = class ToggleCompletedTasksPlugin extends Plugin {
     async onload() {
@@ -7,16 +7,16 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         // Load settings
         await this.loadSettings();
 
-        // Add ribbon icon (das Auge-Symbol in der Seitenleiste)
+        // Add ribbon icon (eye symbol in sidebar)
         const ribbonIconEl = this.addRibbonIcon('eye', 'Toggle Completed Tasks', (evt) => {
             this.toggleCompletedTasks();
         });
         ribbonIconEl.addClass('toggle-completed-tasks-ribbon');
 
-        // Add command (für Command Palette)
+        // Add command (for Command Palette)
         this.addCommand({
             id: 'toggle-completed-tasks',
-            name: 'Erledigte Tasks ein/ausblenden',
+            name: 'Toggle completed tasks visibility',
             callback: () => {
                 this.toggleCompletedTasks();
             }
@@ -39,9 +39,9 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         this.saveSettings();
         this.applyState();
 
-        // Zeige Notification
-        const statusText = this.settings.hideCompleted ? 'ausgeblendet' : 'sichtbar';
-        new Notice(`Erledigte Tasks: ${statusText}`);
+        // Show notification
+        const statusText = this.settings.hideCompleted ? 'hidden' : 'visible';
+        new Notice(`Completed tasks: ${statusText}`);
     }
 
     applyState() {
