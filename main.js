@@ -479,24 +479,28 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
 
-            // Check if this line starts a task (completed or not)
-            if (line.startsWith('- [x]') || line.startsWith('- [X]') || line.startsWith('- [ ]')) {
+            // Check if this line starts a task (any status symbol)
+            const isTaskLine = /^- \[.\]/.test(line);
+
+            if (isTaskLine) {
                 // Check if this is the start of a new list (previous line is not a task)
-                const isNewList = i === 0 ||
-                    !(lines[i-1].trim().startsWith('- [x]') ||
-                      lines[i-1].trim().startsWith('- [X]') ||
-                      lines[i-1].trim().startsWith('- [ ]'));
+                const prevLineIsTask = i > 0 && /^- \[.\]/.test(lines[i-1].trim());
+                const isNewList = i === 0 || !prevLineIsTask;
 
                 if (isNewList) {
                     // This is the start of a task list
                     if (foundListCount === listIndex) {
                         // This is our target list! Find where it ends
                         insertLine = i + 1;
-                        while (insertLine < lines.length && (
-                            lines[insertLine].trim().startsWith('- [x]') ||
-                            lines[insertLine].trim().startsWith('- [X]') ||
-                            lines[insertLine].trim().startsWith('- [ ]')
-                        )) {
+                        // Check all task status symbols: [ ], [x], [X], [-], [/], [>], [<], [?], [!], etc.
+                        while (insertLine < lines.length) {
+                            const nextLine = lines[insertLine].trim();
+                            // Check if line starts with any task marker (- [ followed by any character and ])
+                            const isTaskLine = /^- \[.\]/.test(nextLine);
+                            if (!isTaskLine) {
+                                // Stop if we hit a non-task line
+                                break;
+                            }
                             insertLine++;
                         }
                         console.log('Found target list starting at line', i, 'ending at line', insertLine);
