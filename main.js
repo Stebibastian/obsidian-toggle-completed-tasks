@@ -443,15 +443,36 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         let targetList = listElement;
 
         // Find the heading that precedes this list
+        // We need to search backwards through all elements, not just siblings
         let precedingHeading = null;
-        let currentElement = targetList.previousElementSibling;
+        let searchElement = targetList;
 
-        while (currentElement) {
-            if (currentElement.tagName && /^H[1-6]$/.test(currentElement.tagName)) {
-                precedingHeading = currentElement;
-                break;
+        // Walk backwards through the DOM tree
+        while (searchElement) {
+            // Check previous sibling
+            let prev = searchElement.previousElementSibling;
+            while (prev) {
+                if (prev.tagName && /^H[1-6]$/.test(prev.tagName)) {
+                    precedingHeading = prev;
+                    break;
+                }
+                // Also check children of previous sibling in case heading is nested
+                const headingInPrev = prev.querySelector('h1, h2, h3, h4, h5, h6');
+                if (headingInPrev) {
+                    // Get the last heading in this element
+                    const allHeadings = prev.querySelectorAll('h1, h2, h3, h4, h5, h6');
+                    if (allHeadings.length > 0) {
+                        precedingHeading = allHeadings[allHeadings.length - 1];
+                        break;
+                    }
+                }
+                prev = prev.previousElementSibling;
             }
-            currentElement = currentElement.previousElementSibling;
+            if (precedingHeading) break;
+
+            // Move up to parent and continue search
+            searchElement = searchElement.parentElement;
+            if (!searchElement || searchElement.tagName === 'BODY') break;
         }
 
         console.log('Found target list element:', targetList);
@@ -492,11 +513,11 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             const line = lines[i].trim();
 
             // Check if this line starts a task (any status symbol)
-            const isTaskLine = /^- \[.\]/.test(line);
+            const isTaskLine = /^-\s+\[.\]/.test(line);
 
             if (isTaskLine) {
                 // Check if this is the start of a new list (previous line is not a task)
-                const prevLineIsTask = i > 0 && /^- \[.\]/.test(lines[i-1].trim());
+                const prevLineIsTask = i > 0 && /^-\s+\[.\]/.test(lines[i-1].trim());
                 const isNewList = i === 0 || !prevLineIsTask;
 
                 if (isNewList) {
@@ -509,7 +530,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                         while (insertLine < lines.length) {
                             const nextLine = lines[insertLine].trim();
                             // Check if line starts with any task marker (- [ followed by any character and ])
-                            const isTaskLine = /^- \[.\]/.test(nextLine);
+                            const isTaskLine = /^-\s+\[.\]/.test(nextLine);
                             if (!isTaskLine) {
                                 // Stop if we hit a non-task line
                                 break;
