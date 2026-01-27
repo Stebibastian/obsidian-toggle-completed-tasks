@@ -5,6 +5,7 @@ An Obsidian plugin to easily show/hide completed tasks with one click.
 ## ✨ Features
 
 - **One-Click Toggle**: Show or hide completed tasks with a ribbon icon
+- **Customizable Settings**: Full control over all features via settings panel
 - **Edit Icons on Every Task**: 📝 icon appears next to each task in Reading View for quick editing
 - **Quick Task Creation**: Click on completion messages or task list links to instantly create new tasks via the Tasks Plugin modal
 - **Multi-Language Support**: Auto-detects Obsidian language (English & German supported, more coming soon)
@@ -68,6 +69,18 @@ Empty task lines (containing only `- [ ]` or `- [x]` with no text) are automatic
 - You create a task but decide not to fill it in
 - You delete the text from a task but leave the checkbox
 - When switching from Edit Mode to Reading Mode, empty lines are automatically cleaned up
+
+## ⚙️ Settings
+
+Customize the plugin behavior in Settings → Community Plugins → Toggle Completed Tasks:
+
+- **Auto-clean empty tasks** (default: ON) - Automatically removes empty task lines when switching to Reading Mode
+- **Show edit icons** (default: ON) - Shows 📝 icon next to each task for quick editing
+- **Show "Create new task" link** (default: ON) - Shows clickable link to add new tasks when incomplete tasks exist
+- **Show "All tasks completed" message** (default: ON) - Shows message when all tasks in a list are completed
+- **Make "All tasks completed" message clickable** (default: ON) - Makes the completion message clickable to add new tasks
+
+All settings are enabled by default. You can disable any feature you don't need.
 
 ## 🔧 How it Works
 
