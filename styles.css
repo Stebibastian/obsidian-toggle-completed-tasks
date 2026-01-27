@@ -89,6 +89,9 @@ body.hide-completed-tasks .markdown-reading-view div[class*="block-language-task
     text-decoration: none;
     opacity: 0.6;
     transition: opacity 0.2s ease;
+    display: inline !important; /* Force display */
+    position: relative;
+    z-index: 10; /* Ensure it's above other elements */
 }
 
 .toggle-tasks-edit-icon:hover {
@@ -98,6 +101,7 @@ body.hide-completed-tasks .markdown-reading-view div[class*="block-language-task
 /* Make edit icon visible on task hover */
 .task-list-item .toggle-tasks-edit-icon {
     opacity: 0.4;
+    display: inline !important; /* Force display */
 }
 
 .task-list-item:hover .toggle-tasks-edit-icon {
@@ -107,4 +111,27 @@ body.hide-completed-tasks .markdown-reading-view div[class*="block-language-task
 /* Ribbon Icon Styling */
 .toggle-completed-tasks-ribbon {
     cursor: pointer;
+}
+
+/* Fix for images in task items - prevent double rendering */
+/* When an img tag is inside a task-list-item, Obsidian renders it twice */
+/* Hide the second occurrence of the image */
+.task-list-item img + img {
+    display: none !important;
+}
+
+/* Alternative: Hide images that are direct children (not in paragraph) */
+.task-list-item > img {
+    display: none !important;
+}
+
+/* But keep the first image in the paragraph */
+.task-list-item p img:first-of-type {
+    display: inline-block !important;
+    max-width: 70%;
+}
+
+/* Hide all subsequent images in the same task item paragraph */
+.task-list-item p img:not(:first-of-type) {
+    display: none !important;
 }
