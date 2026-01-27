@@ -439,28 +439,23 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         }
 
         // STEP 3: Find the SPECIFIC list where the user clicked
-        // We need to find which UL element in the DOM corresponds to the listElement
+        // The listElement is the actual UL that was passed to the function
         let targetList = listElement;
 
-        // Walk up to find the UL parent
-        while (targetList && targetList.tagName !== 'UL') {
-            targetList = targetList.previousElementSibling;
-            if (!targetList) {
-                // If we can't find it via previousSibling, try parent
-                targetList = listElement.parentElement;
-                while (targetList && targetList.tagName !== 'UL') {
-                    targetList = targetList.parentElement;
-                }
+        // Find the heading that precedes this list
+        let precedingHeading = null;
+        let currentElement = targetList.previousElementSibling;
+
+        while (currentElement) {
+            if (currentElement.tagName && /^H[1-6]$/.test(currentElement.tagName)) {
+                precedingHeading = currentElement;
                 break;
             }
-        }
-
-        if (!targetList) {
-            console.error('Could not find task list element');
-            return;
+            currentElement = currentElement.previousElementSibling;
         }
 
         console.log('Found target list element:', targetList);
+        console.log('Preceding heading:', precedingHeading ? precedingHeading.textContent : 'none');
 
         // Get all UL elements in the document to find the index
         const previewElement = activeView.previewMode?.containerEl || activeView.contentEl;
@@ -474,9 +469,26 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         const lines = content.split('\n');
         let insertLine = 0;
         let foundListCount = 0;
+        let targetHeadingText = precedingHeading ? precedingHeading.textContent.trim() : null;
 
-        // Find all task lists and count them until we reach our target
-        for (let i = 0; i < lines.length; i++) {
+        // Strategy: If we have a heading, find that heading first, then find the next task list
+        // If no heading, fall back to counting lists
+        let searchStartLine = 0;
+
+        if (targetHeadingText) {
+            // Find the heading in the markdown
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line.startsWith('#') && line.includes(targetHeadingText)) {
+                    searchStartLine = i + 1;
+                    console.log('Found target heading at line', i, ':', line);
+                    break;
+                }
+            }
+        }
+
+        // Find task lists starting from searchStartLine
+        for (let i = searchStartLine; i < lines.length; i++) {
             const line = lines[i].trim();
 
             // Check if this line starts a task (any status symbol)
@@ -488,8 +500,9 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                 const isNewList = i === 0 || !prevLineIsTask;
 
                 if (isNewList) {
-                    // This is the start of a task list
-                    if (foundListCount === listIndex) {
+                    // If we have a heading, take the first list after the heading
+                    // Otherwise, count lists until we reach listIndex
+                    if (targetHeadingText || foundListCount === listIndex) {
                         // This is our target list! Find where it ends
                         insertLine = i + 1;
                         // Check all task status symbols: [ ], [x], [X], [-], [/], [>], [<], [?], [!], etc.
