@@ -5,12 +5,13 @@ An Obsidian plugin to easily show/hide completed tasks with one click.
 ## ✨ Features
 
 - **One-Click Toggle**: Show or hide completed tasks with a ribbon icon
+- **Edit Icons on Every Task**: 📝 icon appears next to each task in Reading View for quick editing
 - **Quick Task Creation**: Click on completion messages or task list links to instantly create new tasks via the Tasks Plugin modal
 - **Multi-Language Support**: Auto-detects Obsidian language (English & German supported, more coming soon)
 - **Tasks Plugin Integration**:
   - Works perfectly with the Tasks Plugin - completed tasks remain visible in query results
-  - Clickable links open the Tasks Plugin modal for quick task creation
-  - Automatically switches to edit mode and returns to reading mode after task creation
+  - Edit icons and clickable links open the Tasks Plugin modal
+  - Automatically switches to edit mode and returns to reading mode after task editing/creation
 - **Status Symbol Support**: Only `[x]` completed tasks are hidden, other status symbols like `[/]` (in progress), `[-]` (cancelled), `[>]` (forwarded) remain visible
 - **Smart Completion Messages**:
   - Shows clickable "-All tasks completed-" message when all tasks are done
@@ -29,7 +30,16 @@ Click the 👁️ eye icon in the left sidebar to toggle between hiding/showing 
 2. Type "Toggle Completed Tasks"
 3. Select the command
 
-### Quick Task Creation (New!)
+### Edit Tasks with One Click (New!)
+
+Every task in Reading View shows a 📝 edit icon that:
+- Appears next to each task (becomes more visible on hover)
+- Click to instantly edit that specific task
+- Automatically switches to edit mode
+- Opens the Tasks Plugin modal with the task's current details
+- Returns to reading mode after saving
+
+### Quick Task Creation
 
 When completed tasks are hidden, you'll see helpful links in Reading View:
 
@@ -63,11 +73,13 @@ This plugin is specifically optimized for use with the [Tasks Plugin](https://gi
 - In Tasks Plugin query results (``` ```tasks ```), ALL tasks remain visible
 - Other status symbols (`[/]`, `[-]`, `[>]`, etc.) always remain visible
 
-#### Quick Task Creation
-- Click on completion messages or "+ Create new task" links
+#### Quick Task Editing & Creation
+- Edit icons (📝) appear next to every task for instant editing
+- Click on completion messages or "+ Create new task" links for new tasks
 - Automatically opens the Tasks Plugin modal
 - Seamlessly handles mode switching (Reading ↔ Edit)
 - Detects and inserts tasks into the correct list when multiple lists exist per file
+- Works with tasks that have Tasks Plugin formatting (dates, priorities, etc.)
 
 ## 📋 Try It Out
 
