@@ -75,6 +75,13 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                 setTimeout(() => this.updateCompletedMessages(), 100);
             })
         );
+
+        // Watch for mode changes to clean up empty task lines when switching to Reading Mode
+        this.registerEvent(
+            this.app.workspace.on('active-leaf-change', () => {
+                this.checkAndCleanEmptyTasks();
+            })
+        );
     }
 
     detectLanguage() {
@@ -558,6 +565,54 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
 
         // Start checking after a short delay (to ensure modal has opened)
         setTimeout(checkModalClosed, 300);
+    }
+
+    async checkAndCleanEmptyTasks() {
+        const { MarkdownView } = require('obsidian');
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+
+        if (!activeView) return;
+
+        const currentMode = activeView.getMode();
+
+        // Only clean when switching to Reading Mode (preview)
+        if (currentMode !== 'preview') return;
+
+        const file = activeView.file;
+        if (!file) return;
+
+        // Read the file content
+        const content = await this.app.vault.read(file);
+        const lines = content.split('\n');
+        let hasChanges = false;
+        const newLines = [];
+
+        // Filter out empty task lines
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const trimmed = line.trim();
+
+            // Check if this is an empty task line (only checkbox, no text)
+            const isEmptyTask = trimmed === '- [ ]' ||
+                              trimmed === '- [x]' ||
+                              trimmed === '- [X]' ||
+                              /^- \[[xX ]\]$/.test(trimmed);
+
+            if (isEmptyTask) {
+                hasChanges = true;
+                // Skip this line (don't add to newLines)
+                console.log('Removing empty task line:', line);
+            } else {
+                newLines.push(line);
+            }
+        }
+
+        // If we made changes, save the file
+        if (hasChanges) {
+            const newContent = newLines.join('\n');
+            await this.app.vault.modify(file, newContent);
+            console.log('Cleaned up empty task lines');
+        }
     }
 
     onunload() {

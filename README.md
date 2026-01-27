@@ -16,6 +16,7 @@ An Obsidian plugin to easily show/hide completed tasks with one click.
 - **Smart Completion Messages**:
   - Shows clickable "-All tasks completed-" message when all tasks are done
   - Shows clickable "+ Create new task" link when tasks are still pending
+- **Automatic Cleanup**: Empty task lines (only checkbox, no text) are automatically removed when switching to Reading Mode
 - **Command Palette**: Also accessible via Command Palette
 
 ## 🎯 Usage
@@ -58,6 +59,15 @@ Both links will:
 4. Automatically return to reading mode after you save or cancel
 
 **Note**: Requires the [Tasks Plugin](https://github.com/obsidian-tasks-group/obsidian-tasks) to be installed for the modal to work.
+
+### Automatic Cleanup
+
+Empty task lines (containing only `- [ ]` or `- [x]` with no text) are automatically removed when you switch to Reading Mode. This keeps your task lists clean and organized without manual intervention.
+
+**When it works:**
+- You create a task but decide not to fill it in
+- You delete the text from a task but leave the checkbox
+- When switching from Edit Mode to Reading Mode, empty lines are automatically cleaned up
 
 ## 🔧 How it Works
 
