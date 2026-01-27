@@ -93,6 +93,13 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             })
         );
 
+        // Also watch for layout changes (which includes mode switches)
+        this.registerEvent(
+            this.app.workspace.on('layout-change', () => {
+                this.checkAndCleanEmptyTasks();
+            })
+        );
+
         // Add settings tab
         this.addSettingTab(new ToggleCompletedTasksSettingTab(this.app, this));
     }
