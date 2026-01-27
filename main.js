@@ -554,8 +554,10 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                     }
                 }).then(() => {
                     console.log('Returned to reading mode');
+                    // Clean up empty task lines after mode switch completes
+                    setTimeout(() => this.checkAndCleanEmptyTasks(), 150);
                     // Update completion messages after a short delay
-                    setTimeout(() => this.updateCompletedMessages(), 100);
+                    setTimeout(() => this.updateCompletedMessages(), 200);
                 });
             } else {
                 // Modal still open, check again
