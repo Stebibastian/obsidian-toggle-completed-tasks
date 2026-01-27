@@ -196,7 +196,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         message.textContent = this.t.allTasksCompleted;
 
         if (isClickable) {
-            message.style.cssText = 'display: block; color: #10b981; font-style: italic; padding: 0; text-align: left; margin-top: -0.8em; margin-bottom: 1em; cursor: pointer; text-decoration: underline;';
+            message.style.cssText = 'display: inline-block; color: #10b981; font-style: italic; padding: 0; text-align: left; margin-top: -0.8em; margin-bottom: 1em; cursor: pointer; text-decoration: underline;';
             message.href = '#';
 
             // Store reference to the list element for later use
@@ -209,7 +209,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             });
         } else {
             // Non-clickable version
-            message.style.cssText = 'display: block; color: #10b981; font-style: italic; padding: 0; text-align: left; margin-top: -0.8em; margin-bottom: 1em;';
+            message.style.cssText = 'display: inline-block; color: #10b981; font-style: italic; padding: 0; text-align: left; margin-top: -0.8em; margin-bottom: 1em;';
         }
 
         list.after(message);
@@ -219,7 +219,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         const link = document.createElement('a');
         link.className = 'toggle-tasks-add-task-link';
         link.textContent = this.lang === 'de' ? '+ Neue Aufgabe erstellen' : '+ Create new task';
-        link.style.cssText = 'display: block; color: #6366f1; font-size: 0.9em; padding: 0; text-align: left; margin-top: -0.4em; margin-bottom: 1em; cursor: pointer; text-decoration: none;';
+        link.style.cssText = 'display: inline-block; color: #6366f1; font-size: 0.9em; padding: 0; text-align: left; margin-top: -0.4em; margin-bottom: 1em; cursor: pointer; text-decoration: none;';
         link.href = '#';
 
         // Store reference to the list element for later use
