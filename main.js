@@ -1,4 +1,14 @@
-const { Plugin, Notice } = require('obsidian');
+const { Plugin, Notice, PluginSettingTab, Setting } = require('obsidian');
+
+// Default Settings
+const DEFAULT_SETTINGS = {
+    hideCompleted: true,
+    autoCleanEmptyTasks: true,
+    showEditIcons: true,
+    showAddTaskLink: true,
+    showCompletedMessage: true,
+    completedMessageClickable: true
+};
 
 // Translations
 const translations = {
@@ -82,6 +92,9 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                 this.checkAndCleanEmptyTasks();
             })
         );
+
+        // Add settings tab
+        this.addSettingTab(new ToggleCompletedTasksSettingTab(this.app, this));
     }
 
     detectLanguage() {
@@ -99,7 +112,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
     }
 
     async loadSettings() {
-        this.settings = Object.assign({ hideCompleted: true }, await this.loadData());
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     }
 
     async saveSettings() {
@@ -148,10 +161,15 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             // Only add completion messages if hideCompleted is active
             if (this.settings.hideCompleted) {
                 if (this.isListFullyCompleted(list)) {
-                    this.addCompletionMessage(list);
+                    // Only show completion message if enabled in settings
+                    if (this.settings.showCompletedMessage) {
+                        this.addCompletionMessage(list);
+                    }
                 } else {
-                    // List has incomplete tasks, add "create new task" link
-                    this.addNewTaskLink(list);
+                    // List has incomplete tasks, add "create new task" link if enabled
+                    if (this.settings.showAddTaskLink) {
+                        this.addNewTaskLink(list);
+                    }
                 }
             }
         });
@@ -170,20 +188,29 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
     }
 
     addCompletionMessage(list) {
-        const message = document.createElement('a');
+        // Check if message should be clickable
+        const isClickable = this.settings.completedMessageClickable;
+
+        const message = document.createElement(isClickable ? 'a' : 'div');
         message.className = 'toggle-tasks-completion-message';
         message.textContent = this.t.allTasksCompleted;
-        message.style.cssText = 'display: block; color: #10b981; font-style: italic; padding: 0; text-align: left; margin-top: -0.8em; margin-bottom: 1em; cursor: pointer; text-decoration: underline;';
-        message.href = '#';
 
-        // Store reference to the list element for later use
-        message.dataset.listElement = 'true';
+        if (isClickable) {
+            message.style.cssText = 'display: block; color: #10b981; font-style: italic; padding: 0; text-align: left; margin-top: -0.8em; margin-bottom: 1em; cursor: pointer; text-decoration: underline;';
+            message.href = '#';
 
-        // Add click handler to open Tasks plugin modal
-        message.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.openTasksModal(list);
-        });
+            // Store reference to the list element for later use
+            message.dataset.listElement = 'true';
+
+            // Add click handler to open Tasks plugin modal
+            message.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.openTasksModal(list);
+            });
+        } else {
+            // Non-clickable version
+            message.style.cssText = 'display: block; color: #10b981; font-style: italic; padding: 0; text-align: left; margin-top: -0.8em; margin-bottom: 1em;';
+        }
 
         list.after(message);
     }
@@ -208,6 +235,9 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
     }
 
     addEditIconsToTasks(list) {
+        // Only add edit icons if enabled in settings
+        if (!this.settings.showEditIcons) return;
+
         // Find all task items in this list
         const taskItems = list.querySelectorAll('.task-list-item');
 
@@ -570,6 +600,9 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
     }
 
     async checkAndCleanEmptyTasks() {
+        // Only clean if enabled in settings
+        if (!this.settings.autoCleanEmptyTasks) return;
+
         const { MarkdownView } = require('obsidian');
         const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 
@@ -626,3 +659,90 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         if (style) style.remove();
     }
 };
+
+// Settings Tab
+class ToggleCompletedTasksSettingTab extends PluginSettingTab {
+    constructor(app, plugin) {
+        super(app, plugin);
+        this.plugin = plugin;
+    }
+
+    display() {
+        const { containerEl } = this;
+        containerEl.empty();
+
+        // Get language for localized descriptions
+        const isGerman = this.plugin.lang === 'de';
+
+        containerEl.createEl('h2', { text: isGerman ? 'Toggle Completed Tasks Einstellungen' : 'Toggle Completed Tasks Settings' });
+
+        // Auto-clean empty tasks
+        new Setting(containerEl)
+            .setName(isGerman ? 'Leere Aufgaben automatisch löschen' : 'Auto-clean empty tasks')
+            .setDesc(isGerman
+                ? 'Entfernt automatisch leere Aufgabenzeilen (nur Checkbox, kein Text) beim Wechsel in den Lesemodus.'
+                : 'Automatically removes empty task lines (only checkbox, no text) when switching to Reading Mode.')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.autoCleanEmptyTasks)
+                .onChange(async (value) => {
+                    this.plugin.settings.autoCleanEmptyTasks = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        // Show edit icons
+        new Setting(containerEl)
+            .setName(isGerman ? 'Bearbeiten-Icons anzeigen' : 'Show edit icons')
+            .setDesc(isGerman
+                ? 'Zeigt ein 📝 Icon neben jeder Aufgabe im Lesemodus zum schnellen Bearbeiten.'
+                : 'Shows a 📝 icon next to each task in Reading Mode for quick editing.')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.showEditIcons)
+                .onChange(async (value) => {
+                    this.plugin.settings.showEditIcons = value;
+                    await this.plugin.saveSettings();
+                    this.plugin.updateCompletedMessages();
+                }));
+
+        // Show "Add Task" link
+        new Setting(containerEl)
+            .setName(isGerman ? '"Neue Aufgabe erstellen" Link anzeigen' : 'Show "Create new task" link')
+            .setDesc(isGerman
+                ? 'Zeigt einen klickbaren Link zum Hinzufügen neuer Aufgaben, wenn noch offene Aufgaben existieren.'
+                : 'Shows a clickable link to add new tasks when incomplete tasks exist.')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.showAddTaskLink)
+                .onChange(async (value) => {
+                    this.plugin.settings.showAddTaskLink = value;
+                    await this.plugin.saveSettings();
+                    this.plugin.updateCompletedMessages();
+                }));
+
+        // Show completed message
+        new Setting(containerEl)
+            .setName(isGerman ? '"Alle Aufgaben erledigt" Nachricht anzeigen' : 'Show "All tasks completed" message')
+            .setDesc(isGerman
+                ? 'Zeigt eine Nachricht, wenn alle Aufgaben in einer Liste erledigt sind.'
+                : 'Shows a message when all tasks in a list are completed.')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.showCompletedMessage)
+                .onChange(async (value) => {
+                    this.plugin.settings.showCompletedMessage = value;
+                    await this.plugin.saveSettings();
+                    this.plugin.updateCompletedMessages();
+                }));
+
+        // Completed message clickable
+        new Setting(containerEl)
+            .setName(isGerman ? '"Alle Aufgaben erledigt" Nachricht klickbar machen' : 'Make "All tasks completed" message clickable')
+            .setDesc(isGerman
+                ? 'Macht die "Alle Aufgaben erledigt" Nachricht klickbar, um eine neue Aufgabe hinzuzufügen.'
+                : 'Makes the "All tasks completed" message clickable to add a new task.')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.completedMessageClickable)
+                .onChange(async (value) => {
+                    this.plugin.settings.completedMessageClickable = value;
+                    await this.plugin.saveSettings();
+                    this.plugin.updateCompletedMessages();
+                }));
+    }
+}
