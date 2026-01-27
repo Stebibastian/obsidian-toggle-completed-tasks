@@ -74,6 +74,36 @@ body.hide-completed-tasks .markdown-reading-view div[class*="block-language-task
     opacity: 0.7;
 }
 
+/* Edit Icon Styling */
+.toggle-tasks-edit-icon {
+    width: 1em;
+    height: 1em;
+    font-size: 0.9em;
+    vertical-align: middle;
+    margin-left: 0.5em;
+    cursor: pointer;
+    color: var(--text-accent);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    text-decoration: none;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+.toggle-tasks-edit-icon:hover {
+    opacity: 1;
+}
+
+/* Make edit icon visible on task hover */
+.task-list-item .toggle-tasks-edit-icon {
+    opacity: 0.4;
+}
+
+.task-list-item:hover .toggle-tasks-edit-icon {
+    opacity: 1;
+}
+
 /* Ribbon Icon Styling */
 .toggle-completed-tasks-ribbon {
     cursor: pointer;

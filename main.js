@@ -61,6 +61,20 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                 setTimeout(() => this.updateCompletedMessages(), 50);
             })
         );
+
+        // Watch for active leaf changes (switching files or views)
+        this.registerEvent(
+            this.app.workspace.on('active-leaf-change', () => {
+                setTimeout(() => this.updateCompletedMessages(), 100);
+            })
+        );
+
+        // Watch for file open events
+        this.registerEvent(
+            this.app.workspace.on('file-open', () => {
+                setTimeout(() => this.updateCompletedMessages(), 100);
+            })
+        );
     }
 
     detectLanguage() {
@@ -111,22 +125,27 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
     }
 
     updateCompletedMessages() {
-        if (!this.settings.hideCompleted) return;
-
-        // Remove old messages
+        // Remove old messages and icons
         document.querySelectorAll('.toggle-tasks-completion-message').forEach(el => el.remove());
         document.querySelectorAll('.toggle-tasks-add-task-link').forEach(el => el.remove());
+        document.querySelectorAll('.toggle-tasks-edit-icon').forEach(el => el.remove());
 
         // Find all task lists in Reading View
         const readingViewLists = document.querySelectorAll('.markdown-reading-view ul.contains-task-list');
         readingViewLists.forEach(list => {
             if (this.isInTasksQuery(list)) return;
 
-            if (this.isListFullyCompleted(list)) {
-                this.addCompletionMessage(list);
-            } else {
-                // List has incomplete tasks, add "create new task" link
-                this.addNewTaskLink(list);
+            // Always add edit icons to all tasks
+            this.addEditIconsToTasks(list);
+
+            // Only add completion messages if hideCompleted is active
+            if (this.settings.hideCompleted) {
+                if (this.isListFullyCompleted(list)) {
+                    this.addCompletionMessage(list);
+                } else {
+                    // List has incomplete tasks, add "create new task" link
+                    this.addNewTaskLink(list);
+                }
             }
         });
     }
@@ -138,9 +157,9 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
     }
 
     isInTasksQuery(element) {
+        // Only skip if it's actually inside a Tasks Plugin query result block
         return element.closest('.plugin-tasks-query-result') !== null ||
-               element.closest('[class*="tasks-"]') !== null ||
-               element.closest('[class*="block-language-tasks"]') !== null;
+               element.closest('.block-language-tasks') !== null;
     }
 
     addCompletionMessage(list) {
@@ -179,6 +198,157 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         });
 
         list.after(link);
+    }
+
+    addEditIconsToTasks(list) {
+        // Find all task items in this list
+        const taskItems = list.querySelectorAll('.task-list-item');
+
+        taskItems.forEach(taskItem => {
+            // Skip if already has edit icon
+            if (taskItem.querySelector('.toggle-tasks-edit-icon')) return;
+
+            // Skip if this is in a Tasks Plugin query result
+            if (this.isInTasksQuery(taskItem)) return;
+
+            // Create edit icon
+            const editIcon = document.createElement('a');
+            editIcon.className = 'toggle-tasks-edit-icon';
+            editIcon.href = '#';
+            editIcon.title = this.lang === 'de' ? 'Aufgabe bearbeiten' : 'Edit task';
+            editIcon.textContent = '📝';
+
+            // Add click handler
+            editIcon.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.editTask(taskItem);
+            });
+
+            // Append to task item
+            taskItem.appendChild(editIcon);
+        });
+    }
+
+    async editTask(taskItem) {
+        console.log('editTask called');
+
+        const { MarkdownView } = require('obsidian');
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+
+        if (!activeView) {
+            new Notice(this.lang === 'de'
+                ? 'Keine aktive Notiz gefunden.'
+                : 'No active note found.');
+            return;
+        }
+
+        const file = activeView.file;
+        if (!file) return;
+
+        const currentMode = activeView.getMode();
+        console.log('Current mode:', currentMode);
+
+        // Get the task text from the DOM
+        const taskText = this.getTaskTextFromItem(taskItem);
+        console.log('Task text:', taskText);
+
+        // Switch to edit mode if needed
+        if (currentMode !== 'source') {
+            console.log('Not in source mode, switching...');
+            const leaf = this.app.workspace.activeLeaf;
+            await leaf.setViewState({
+                type: 'markdown',
+                state: {
+                    file: file.path,
+                    mode: 'source'
+                }
+            });
+            console.log('Switched to source mode');
+
+            await new Promise(resolve => setTimeout(resolve, 150));
+        } else {
+            console.log('Already in source mode');
+        }
+
+        const newActiveView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!newActiveView) {
+            console.error('Could not get active view after mode switch');
+            return;
+        }
+
+        const editor = newActiveView.editor;
+        if (!editor) {
+            console.error('No editor found');
+            return;
+        }
+
+        // Find the line with this task
+        const content = editor.getValue();
+        const lines = content.split('\n');
+        let taskLine = -1;
+
+        for (let i = 0; i < lines.length; i++) {
+            // Check if this line matches the task text
+            if (lines[i].includes(taskText)) {
+                taskLine = i;
+                break;
+            }
+        }
+
+        if (taskLine === -1) {
+            console.error('Could not find task line in editor');
+            return;
+        }
+
+        console.log('Found task at line:', taskLine);
+
+        // Position cursor on the task line
+        editor.setCursor({ line: taskLine, ch: 0 });
+        editor.focus();
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // Execute Tasks plugin command
+        const tasksCommand = this.app.commands.commands['obsidian-tasks-plugin:edit-task'];
+
+        if (tasksCommand) {
+            console.log('Opening Tasks modal for editing');
+
+            // Set up modal watcher to return to reading mode if we switched
+            if (currentMode === 'preview') {
+                this.setupModalWatcher(file, newActiveView);
+            }
+
+            if (tasksCommand.editorCheckCallback) {
+                tasksCommand.editorCheckCallback(false, editor, newActiveView);
+            } else if (tasksCommand.editorCallback) {
+                tasksCommand.editorCallback(editor, newActiveView);
+            } else {
+                this.app.commands.executeCommandById('obsidian-tasks-plugin:edit-task');
+            }
+        } else {
+            console.error('Tasks plugin command not found');
+            new Notice(this.lang === 'de'
+                ? 'Tasks Plugin ist nicht installiert.'
+                : 'Tasks Plugin is not installed.', 5000);
+        }
+    }
+
+    getTaskTextFromItem(taskItem) {
+        // Clone the element to avoid modifying the original
+        const clone = taskItem.cloneNode(true);
+
+        // Remove the edit icon from clone
+        const editIcon = clone.querySelector('.toggle-tasks-edit-icon');
+        if (editIcon) editIcon.remove();
+
+        // Get the text content (will include the checkbox marker)
+        let text = clone.textContent.trim();
+
+        // The task text typically starts after the checkbox
+        // Format is usually "- [ ] " or "- [x] " followed by the actual text
+        return text;
     }
 
     async openTasksModal(listElement) {

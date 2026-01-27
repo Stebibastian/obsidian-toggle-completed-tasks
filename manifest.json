@@ -1,9 +1,9 @@
 {
   "id": "toggle-completed-tasks",
   "name": "Toggle Completed Tasks",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "minAppVersion": "0.15.0",
-  "description": "Toggle visibility of completed tasks with one click. Features clickable links to quickly create new tasks via Tasks Plugin integration.",
+  "description": "Toggle visibility of completed tasks with one click. Features edit icons on every task and clickable links for quick task creation via Tasks Plugin.",
   "author": "Stebibastian",
   "authorUrl": "https://github.com/Stebibastian",
   "isDesktopOnly": false
