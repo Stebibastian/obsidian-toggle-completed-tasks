@@ -43,6 +43,24 @@ body.hide-completed-tasks .markdown-source-view.mod-cm6 .HyperMD-task-line[data-
     display: none !important;
 }
 
+/* ===== RECENT COMPLETED MODE ===== */
+/* Show only recently completed tasks (determined by JS based on ✅ date) */
+
+/* In recent mode, hide tasks marked as hidden by JS */
+body.show-recent-completed-tasks .markdown-reading-view .task-list-item.recent-completed-hidden {
+    display: none !important;
+}
+
+/* In recent mode, show tasks marked as visible by JS */
+body.show-recent-completed-tasks .markdown-reading-view .task-list-item.recent-completed-visible {
+    display: list-item !important;
+}
+
+/* Tasks Plugin Queries - always show all in recent mode too */
+body.show-recent-completed-tasks .plugin-tasks-query-result .task-list-item {
+    display: list-item !important;
+}
+
 /* ===== MESSAGES ===== */
 
 /* "All tasks completed" message - injected dynamically by main.js based on language */
