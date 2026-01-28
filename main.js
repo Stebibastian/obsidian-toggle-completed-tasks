@@ -3,6 +3,8 @@ const { Plugin, Notice, PluginSettingTab, Setting } = require('obsidian');
 // Default Settings
 const DEFAULT_SETTINGS = {
     hideCompleted: true,
+    visibilityMode: 'hideCompleted', // 'showAll', 'hideCompleted', 'recentCompleted'
+    recentDays: 3, // Days to show recently completed tasks (1-7)
     autoCleanEmptyTasks: true,
     showEditIcons: true,
     showAddTaskLink: true,
@@ -17,6 +19,7 @@ const translations = {
         commandName: 'Toggle completed tasks visibility',
         notificationHidden: 'Completed tasks: hidden',
         notificationVisible: 'Completed tasks: visible',
+        notificationRecentVisible: 'Showing: open + recently completed',
         allTasksCompleted: '-All tasks completed-'
     },
     de: {
@@ -24,6 +27,7 @@ const translations = {
         commandName: 'Erledigte Aufgaben ein/ausblenden',
         notificationHidden: 'Erledigte Aufgaben: ausgeblendet',
         notificationVisible: 'Erledigte Aufgaben: sichtbar',
+        notificationRecentVisible: 'Zeige: offen + kürzlich erledigt',
         allTasksCompleted: '-Alle Aufgaben erledigt-'
     }
 };
@@ -120,6 +124,11 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
 
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+
+        // Migration: sync visibilityMode with legacy hideCompleted setting
+        if (this.settings.visibilityMode === undefined) {
+            this.settings.visibilityMode = this.settings.hideCompleted ? 'hideCompleted' : 'showAll';
+        }
     }
 
     async saveSettings() {
@@ -127,28 +136,112 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
     }
 
     toggleCompletedTasks() {
-        this.settings.hideCompleted = !this.settings.hideCompleted;
+        // Cycle through 3 states: showAll -> recentCompleted -> hideCompleted -> showAll
+        const currentMode = this.settings.visibilityMode;
+        let newMode;
+        let statusText;
+
+        if (currentMode === 'showAll') {
+            newMode = 'recentCompleted';
+            statusText = this.t.notificationRecentVisible;
+        } else if (currentMode === 'recentCompleted') {
+            newMode = 'hideCompleted';
+            statusText = this.t.notificationHidden;
+        } else {
+            newMode = 'showAll';
+            statusText = this.t.notificationVisible;
+        }
+
+        this.settings.visibilityMode = newMode;
+        // Keep hideCompleted in sync for backward compatibility
+        this.settings.hideCompleted = (newMode === 'hideCompleted');
         this.saveSettings();
         this.applyState();
 
-        // Show notification with localized text
-        const statusText = this.settings.hideCompleted ?
-            this.t.notificationHidden :
-            this.t.notificationVisible;
         new Notice(statusText);
     }
 
     applyState() {
         const body = document.body;
 
-        if (this.settings.hideCompleted) {
+        // Remove all visibility classes first
+        body.classList.remove('hide-completed-tasks');
+        body.classList.remove('show-recent-completed-tasks');
+
+        const mode = this.settings.visibilityMode;
+
+        if (mode === 'hideCompleted') {
             body.classList.add('hide-completed-tasks');
-        } else {
-            body.classList.remove('hide-completed-tasks');
+        } else if (mode === 'recentCompleted') {
+            body.classList.add('show-recent-completed-tasks');
+            // Filter tasks by completion date
+            this.filterRecentCompletedTasks();
         }
 
         // Update completion messages
         setTimeout(() => this.updateCompletedMessages(), 100);
+    }
+
+    /**
+     * Parse completion date from task text (e.g., "✅ 2026-01-18")
+     * Returns Date object or null if not found
+     */
+    parseCompletionDate(taskText) {
+        // Match patterns like "✅ 2026-01-18" or "✅2026-01-18"
+        const match = taskText.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
+        if (match) {
+            return new Date(match[1]);
+        }
+        return null;
+    }
+
+    /**
+     * Check if a date is within the recent days threshold
+     * 1 day = only today, 2 days = today + yesterday, etc.
+     */
+    isWithinRecentDays(completionDate) {
+        if (!completionDate) return false;
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const completedDay = new Date(completionDate.getFullYear(), completionDate.getMonth(), completionDate.getDate());
+
+        const diffTime = today - completedDay;
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        // 1 day = only today (diffDays < 1), 2 days = today + yesterday (diffDays < 2), etc.
+        return diffDays < this.settings.recentDays;
+    }
+
+    /**
+     * Filter completed tasks to show only recently completed ones
+     */
+    filterRecentCompletedTasks() {
+        // Find all completed task items in Reading View
+        const completedTasks = document.querySelectorAll('.markdown-reading-view .task-list-item.is-checked');
+
+        completedTasks.forEach(task => {
+            // Skip tasks in Tasks Plugin query results
+            if (this.isInTasksQuery(task)) return;
+
+            // Skip non-completed status symbols
+            const dataTask = task.getAttribute('data-task');
+            if (dataTask && dataTask !== 'x' && dataTask !== 'X') return;
+
+            const taskText = task.textContent || '';
+            const completionDate = this.parseCompletionDate(taskText);
+
+            if (completionDate && this.isWithinRecentDays(completionDate)) {
+                // Show this task - it was completed recently
+                task.classList.add('recent-completed-visible');
+            } else if (completionDate) {
+                // Hide this task - it was completed too long ago
+                task.classList.add('recent-completed-hidden');
+            } else {
+                // No completion date found - hide it (treat as old)
+                task.classList.add('recent-completed-hidden');
+            }
+        });
     }
 
     updateCompletedMessages() {
@@ -156,6 +249,15 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         document.querySelectorAll('.toggle-tasks-completion-message').forEach(el => el.remove());
         document.querySelectorAll('.toggle-tasks-add-task-link').forEach(el => el.remove());
         document.querySelectorAll('.toggle-tasks-edit-icon').forEach(el => el.remove());
+
+        // Clear recent-completed visibility classes
+        document.querySelectorAll('.recent-completed-visible').forEach(el => el.classList.remove('recent-completed-visible'));
+        document.querySelectorAll('.recent-completed-hidden').forEach(el => el.classList.remove('recent-completed-hidden'));
+
+        // Re-apply recent completed filtering if in that mode
+        if (this.settings.visibilityMode === 'recentCompleted') {
+            this.filterRecentCompletedTasks();
+        }
 
         // Find all task lists in Reading View
         const readingViewLists = document.querySelectorAll('.markdown-reading-view ul.contains-task-list');
@@ -165,8 +267,8 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             // Always add edit icons to all tasks
             this.addEditIconsToTasks(list);
 
-            // Only add completion messages if hideCompleted is active
-            if (this.settings.hideCompleted) {
+            // Only add completion messages if not in showAll mode
+            if (this.settings.visibilityMode !== 'showAll') {
                 if (this.isListFullyCompleted(list)) {
                     // Only show completion message if enabled in settings
                     if (this.settings.showCompletedMessage) {
@@ -698,6 +800,11 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
     onunload() {
         console.log('Unloading Toggle Completed Tasks Plugin');
         document.body.classList.remove('hide-completed-tasks');
+        document.body.classList.remove('show-recent-completed-tasks');
+
+        // Clean up recent-completed classes
+        document.querySelectorAll('.recent-completed-visible').forEach(el => el.classList.remove('recent-completed-visible'));
+        document.querySelectorAll('.recent-completed-hidden').forEach(el => el.classList.remove('recent-completed-hidden'));
 
         // Remove injected style
         const style = document.getElementById('toggle-completed-tasks-i18n');
@@ -720,6 +827,27 @@ class ToggleCompletedTasksSettingTab extends PluginSettingTab {
         const isGerman = this.plugin.lang === 'de';
 
         containerEl.createEl('h2', { text: isGerman ? 'Toggle Completed Tasks Einstellungen' : 'Toggle Completed Tasks Settings' });
+
+        // Recent days setting
+        new Setting(containerEl)
+            .setName(isGerman ? 'Tage für kürzlich erledigte Aufgaben' : 'Days for recently completed tasks')
+            .setDesc(isGerman
+                ? 'Anzahl der Tage, für die erledigte Aufgaben im "Kürzlich erledigt" Modus angezeigt werden (basierend auf ✅ Datum).'
+                : 'Number of days to show completed tasks in "Recently completed" mode (based on ✅ date).')
+            .addDropdown(dropdown => dropdown
+                .addOption('1', '1')
+                .addOption('2', '2')
+                .addOption('3', '3')
+                .addOption('4', '4')
+                .addOption('5', '5')
+                .addOption('6', '6')
+                .addOption('7', '7')
+                .setValue(String(this.plugin.settings.recentDays))
+                .onChange(async (value) => {
+                    this.plugin.settings.recentDays = parseInt(value);
+                    await this.plugin.saveSettings();
+                    this.plugin.applyState();
+                }));
 
         // Auto-clean empty tasks
         new Setting(containerEl)
