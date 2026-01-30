@@ -541,6 +541,13 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         const currentMode = activeView.getMode();
         console.log('Current mode:', currentMode);
 
+        // Save scroll position before any changes
+        const scrollContainer = activeView.containerEl.querySelector('.markdown-preview-view') ||
+                               activeView.containerEl.querySelector('.cm-scroller') ||
+                               activeView.contentEl;
+        const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+        console.log('Saved scroll position:', savedScrollTop);
+
         // Get the task text from the DOM
         const taskText = this.getTaskTextFromItem(taskItem);
         console.log('Task text:', taskText);
@@ -609,7 +616,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
 
             // Set up modal watcher to return to reading mode if we switched
             if (currentMode === 'preview') {
-                this.setupModalWatcher(file, newActiveView);
+                this.setupModalWatcher(file, newActiveView, savedScrollTop, taskItem, null);
             }
 
             if (tasksCommand.editorCheckCallback) {
@@ -661,6 +668,18 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
 
         const currentMode = activeView.getMode();
         console.log('Current mode:', currentMode);
+
+        // Save scroll position before any changes
+        const scrollContainer = activeView.containerEl.querySelector('.markdown-preview-view') ||
+                               activeView.containerEl.querySelector('.cm-scroller') ||
+                               activeView.contentEl;
+        const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+        console.log('Saved scroll position:', savedScrollTop);
+
+        // Also save the position of the clicked element relative to viewport
+        const listRect = listElement ? listElement.getBoundingClientRect() : null;
+        const viewportOffset = listRect ? listRect.top : null;
+        console.log('List element viewport offset:', viewportOffset);
 
         // STEP 1: Switch to edit mode FIRST if needed
         if (currentMode !== 'source') {
@@ -839,7 +858,8 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
 
             if (shouldReturnToReading) {
                 // Watch for modal to close by checking for DOM changes
-                this.setupModalWatcher(file, newActiveView);
+                // Pass scroll position and list element info for restoration
+                this.setupModalWatcher(file, newActiveView, savedScrollTop, listElement, viewportOffset);
             }
 
             if (tasksCommand.editorCheckCallback) {
@@ -857,8 +877,9 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         }
     }
 
-    setupModalWatcher(file, view) {
+    setupModalWatcher(file, view, savedScrollTop, listElement, viewportOffset) {
         console.log('Setting up modal watcher to return to reading mode');
+        console.log('Will restore scroll to:', savedScrollTop, 'viewport offset:', viewportOffset);
 
         // Check if modal exists
         const checkModalClosed = () => {
@@ -881,6 +902,11 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                     setTimeout(() => this.checkAndCleanEmptyTasks(), 150);
                     // Update completion messages after a short delay
                     setTimeout(() => this.updateCompletedMessages(), 200);
+
+                    // Restore scroll position after a delay to let the view render
+                    setTimeout(() => this.restoreScrollPosition(savedScrollTop, viewportOffset), 250);
+                    // Double-check scroll restoration after content fully loads
+                    setTimeout(() => this.restoreScrollPosition(savedScrollTop, viewportOffset), 500);
                 });
             } else {
                 // Modal still open, check again
@@ -890,6 +916,24 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
 
         // Start checking after a short delay (to ensure modal has opened)
         setTimeout(checkModalClosed, 300);
+    }
+
+    /**
+     * Restore scroll position after returning to reading mode
+     */
+    restoreScrollPosition(savedScrollTop, viewportOffset) {
+        const { MarkdownView } = require('obsidian');
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!activeView) return;
+
+        const scrollContainer = activeView.containerEl.querySelector('.markdown-preview-view') ||
+                               activeView.containerEl.querySelector('.cm-scroller') ||
+                               activeView.contentEl;
+
+        if (scrollContainer && savedScrollTop !== null) {
+            console.log('Restoring scroll position to:', savedScrollTop);
+            scrollContainer.scrollTop = savedScrollTop;
+        }
     }
 
     async checkAndCleanEmptyTasks() {
