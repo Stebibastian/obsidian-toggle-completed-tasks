@@ -221,10 +221,10 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
     }
 
     /**
-     * Add a button to the view title bar (next to the 3-dots menu)
+     * Add buttons to the view title bar (next to the 3-dots menu)
      */
     addViewActionButton() {
-        const { MarkdownView } = require('obsidian');
+        const { MarkdownView, setIcon } = require('obsidian');
 
         // Get all markdown leaves
         this.app.workspace.iterateAllLeaves((leaf) => {
@@ -232,64 +232,108 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                 const viewActionsEl = leaf.view.containerEl.querySelector('.view-actions');
                 if (!viewActionsEl) return;
 
-                // Check if button already exists
-                if (viewActionsEl.querySelector('.toggle-completed-tasks-btn')) return;
-
-                // Create the button
-                const btn = document.createElement('a');
-                btn.className = 'view-action clickable-icon toggle-completed-tasks-btn';
-                btn.setAttribute('aria-label', this.settings.hideCompleted
-                    ? (this.lang === 'de' ? 'Erledigte: ausgeblendet' : 'Completed: hidden')
-                    : (this.lang === 'de' ? 'Erledigte: sichtbar' : 'Completed: visible'));
-
-                // Set icon based on state
-                this.updateButtonIcon(btn);
-
-                // Add click handler
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    this.toggleCompletedTasks();
-                    // Update button after toggle
-                    this.updateAllViewActionButtons();
-                });
-
-                // Insert before the 3-dots menu (last element)
+                // Find insertion point (before the 3-dots menu)
                 const moreOptionsBtn = viewActionsEl.querySelector('.view-action[aria-label="More options"]') ||
+                                       viewActionsEl.querySelector('.view-action[aria-label="Mehr Optionen"]') ||
                                        viewActionsEl.querySelector('.view-action:last-child');
-                if (moreOptionsBtn) {
-                    viewActionsEl.insertBefore(btn, moreOptionsBtn);
+
+                // === Button 1: Main toggle (eye) ===
+                if (!viewActionsEl.querySelector('.toggle-completed-tasks-btn')) {
+                    const btn = document.createElement('a');
+                    btn.className = 'view-action clickable-icon toggle-completed-tasks-btn';
+                    this.updateMainButtonIcon(btn);
+
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        this.toggleCompletedTasks();
+                    });
+
+                    if (moreOptionsBtn) {
+                        viewActionsEl.insertBefore(btn, moreOptionsBtn);
+                    } else {
+                        viewActionsEl.appendChild(btn);
+                    }
+                }
+
+                // === Button 2: Recent toggle (calendar) - only when hiding completed ===
+                const existingRecentBtn = viewActionsEl.querySelector('.toggle-recent-tasks-btn');
+
+                if (this.settings.hideCompleted) {
+                    // Add button if it doesn't exist
+                    if (!existingRecentBtn) {
+                        const recentBtn = document.createElement('a');
+                        recentBtn.className = 'view-action clickable-icon toggle-recent-tasks-btn';
+                        this.updateRecentButtonIcon(recentBtn);
+
+                        recentBtn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            this.toggleRecentCompleted();
+                        });
+
+                        // Insert after the main button
+                        const mainBtn = viewActionsEl.querySelector('.toggle-completed-tasks-btn');
+                        if (mainBtn && mainBtn.nextSibling) {
+                            viewActionsEl.insertBefore(recentBtn, mainBtn.nextSibling);
+                        } else if (moreOptionsBtn) {
+                            viewActionsEl.insertBefore(recentBtn, moreOptionsBtn);
+                        } else {
+                            viewActionsEl.appendChild(recentBtn);
+                        }
+                    } else {
+                        // Update existing button
+                        this.updateRecentButtonIcon(existingRecentBtn);
+                    }
                 } else {
-                    viewActionsEl.appendChild(btn);
+                    // Remove the recent button if hideCompleted is false
+                    if (existingRecentBtn) {
+                        existingRecentBtn.remove();
+                    }
                 }
             }
         });
     }
 
     /**
-     * Update the icon of a view action button based on current state
+     * Update the main toggle button icon
      */
-    updateButtonIcon(btn) {
-        // Clear existing content
-        btn.innerHTML = '';
-
-        // Use Obsidian's icon system
-        const iconName = this.settings.hideCompleted ? 'eye-off' : 'eye';
+    updateMainButtonIcon(btn) {
         const { setIcon } = require('obsidian');
+        btn.innerHTML = '';
+        const iconName = this.settings.hideCompleted ? 'eye-off' : 'eye';
         setIcon(btn, iconName);
-
-        // Update aria-label
         btn.setAttribute('aria-label', this.settings.hideCompleted
-            ? (this.lang === 'de' ? 'Erledigte: ausgeblendet' : 'Completed: hidden')
-            : (this.lang === 'de' ? 'Erledigte: sichtbar' : 'Completed: visible'));
+            ? (this.lang === 'de' ? 'Erledigte: ausgeblendet (klicken zum Einblenden)' : 'Completed: hidden (click to show)')
+            : (this.lang === 'de' ? 'Erledigte: sichtbar (klicken zum Ausblenden)' : 'Completed: visible (click to hide)'));
+    }
+
+    /**
+     * Update the recent toggle button icon
+     */
+    updateRecentButtonIcon(btn) {
+        const { setIcon } = require('obsidian');
+        btn.innerHTML = '';
+        const iconName = this.settings.showRecentCompleted ? 'calendar-check' : 'calendar';
+        setIcon(btn, iconName);
+        const days = this.settings.recentDays;
+        btn.setAttribute('aria-label', this.settings.showRecentCompleted
+            ? (this.lang === 'de' ? `Kürzlich erledigte: AN (${days} Tage)` : `Recently completed: ON (${days} days)`)
+            : (this.lang === 'de' ? 'Kürzlich erledigte: AUS' : 'Recently completed: OFF'));
     }
 
     /**
      * Update all view action buttons after state change
      */
     updateAllViewActionButtons() {
+        // Update main buttons
         document.querySelectorAll('.toggle-completed-tasks-btn').forEach(btn => {
-            this.updateButtonIcon(btn);
+            this.updateMainButtonIcon(btn);
         });
+        // Update recent buttons
+        document.querySelectorAll('.toggle-recent-tasks-btn').forEach(btn => {
+            this.updateRecentButtonIcon(btn);
+        });
+        // Re-add buttons to handle visibility changes
+        this.addViewActionButton();
     }
 
     setupTasksQueryObserver() {
@@ -389,6 +433,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
 
         this.saveSettings();
         this.applyState();
+        this.updateAllViewActionButtons();
 
         new Notice(statusText);
     }
