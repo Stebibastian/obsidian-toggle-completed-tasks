@@ -2,10 +2,10 @@ const { Plugin, Notice, PluginSettingTab, Setting } = require('obsidian');
 
 // Default Settings
 const DEFAULT_SETTINGS = {
-    hideCompleted: true,
-    visibilityMode: 'hideCompleted', // 'showAll', 'hideCompleted', 'recentCompleted'
-    recentDays: 3, // Days to show recently completed tasks (1-7)
-    hideCancelled: true, // Also hide cancelled tasks ([-] with ❌ date)
+    hideCompleted: true,          // Main toggle: hide completed tasks
+    showRecentCompleted: false,   // Secondary toggle: show recently completed when hiding
+    recentDays: 3,                // Days to show recently completed tasks (1-7)
+    hideCancelled: true,          // Also hide cancelled tasks ([-] with ❌ date)
     autoCleanEmptyTasks: true,
     showEditIcons: true,
     showAddTaskLink: true,
@@ -18,6 +18,7 @@ const translations = {
     en: {
         ribbonTooltip: 'Toggle Completed Tasks',
         commandName: 'Toggle completed tasks visibility',
+        commandNameRecent: 'Toggle recently completed visibility',
         notificationHidden: 'Completed tasks: hidden',
         notificationVisible: 'Completed tasks: visible',
         notificationRecentVisible: 'Showing: open + recently completed',
@@ -28,6 +29,7 @@ const translations = {
     de: {
         ribbonTooltip: 'Erledigte Aufgaben ein/ausblenden',
         commandName: 'Erledigte Aufgaben ein/ausblenden',
+        commandNameRecent: 'Kürzlich erledigte ein/ausblenden',
         notificationHidden: 'Erledigte Aufgaben: ausgeblendet',
         notificationVisible: 'Erledigte Aufgaben: sichtbar',
         notificationRecentVisible: 'Zeige: offen + kürzlich erledigt',
@@ -60,6 +62,15 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             name: this.t.commandName,
             callback: () => {
                 this.toggleCompletedTasks();
+            }
+        });
+
+        // Add command for toggling recently completed visibility
+        this.addCommand({
+            id: 'toggle-recent-completed',
+            name: this.t.commandNameRecent,
+            callback: () => {
+                this.toggleRecentCompleted();
             }
         });
 
@@ -193,25 +204,40 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
     }
 
     toggleCompletedTasks() {
-        // Cycle through 3 states: showAll -> recentCompleted -> hideCompleted -> showAll
-        const currentMode = this.settings.visibilityMode;
-        let newMode;
-        let statusText;
+        // Simple toggle: show all <-> hide completed
+        // The "show recent" option is controlled separately in settings
+        this.settings.hideCompleted = !this.settings.hideCompleted;
 
-        if (currentMode === 'showAll') {
-            newMode = 'recentCompleted';
-            statusText = this.t.notificationRecentVisible;
-        } else if (currentMode === 'recentCompleted') {
-            newMode = 'hideCompleted';
-            statusText = this.t.notificationHidden;
+        let statusText;
+        if (this.settings.hideCompleted) {
+            if (this.settings.showRecentCompleted) {
+                statusText = this.t.notificationRecentVisible;
+            } else {
+                statusText = this.t.notificationHidden;
+            }
         } else {
-            newMode = 'showAll';
             statusText = this.t.notificationVisible;
         }
 
-        this.settings.visibilityMode = newMode;
-        // Keep hideCompleted in sync for backward compatibility
-        this.settings.hideCompleted = (newMode === 'hideCompleted');
+        this.saveSettings();
+        this.applyState();
+
+        new Notice(statusText);
+    }
+
+    toggleRecentCompleted() {
+        // Toggle showing recently completed tasks (only works when hideCompleted is true)
+        if (!this.settings.hideCompleted) return;
+
+        this.settings.showRecentCompleted = !this.settings.showRecentCompleted;
+
+        let statusText;
+        if (this.settings.showRecentCompleted) {
+            statusText = this.t.notificationRecentVisible;
+        } else {
+            statusText = this.t.notificationHidden;
+        }
+
         this.saveSettings();
         this.applyState();
 
@@ -226,21 +252,23 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         body.classList.remove('show-recent-completed-tasks');
         body.classList.remove('hide-cancelled-tasks');
 
-        const mode = this.settings.visibilityMode;
+        if (this.settings.hideCompleted) {
+            if (this.settings.showRecentCompleted) {
+                // Hide completed but show recently completed
+                body.classList.add('show-recent-completed-tasks');
+                this.filterRecentCompletedTasks();
+            } else {
+                // Hide all completed
+                body.classList.add('hide-completed-tasks');
+            }
 
-        if (mode === 'hideCompleted') {
-            body.classList.add('hide-completed-tasks');
-        } else if (mode === 'recentCompleted') {
-            body.classList.add('show-recent-completed-tasks');
-            // Filter tasks by completion date
-            this.filterRecentCompletedTasks();
+            // Apply cancelled task filter if enabled
+            if (this.settings.hideCancelled) {
+                body.classList.add('hide-cancelled-tasks');
+                this.filterCancelledTasks();
+            }
         }
-
-        // Apply cancelled task filter if enabled (applies in both hideCompleted and recentCompleted modes)
-        if (this.settings.hideCancelled && mode !== 'showAll') {
-            body.classList.add('hide-cancelled-tasks');
-            this.filterCancelledTasks();
-        }
+        // else: show all - no classes needed
 
         // Update completion messages
         setTimeout(() => this.updateCompletedMessages(), 100);
@@ -340,12 +368,12 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         document.querySelectorAll('.cancelled-task-hidden').forEach(el => el.classList.remove('cancelled-task-hidden'));
 
         // Re-apply recent completed filtering if in that mode
-        if (this.settings.visibilityMode === 'recentCompleted') {
+        if (this.settings.hideCompleted && this.settings.showRecentCompleted) {
             this.filterRecentCompletedTasks();
         }
 
-        // Re-apply cancelled task filtering if enabled and not in showAll mode
-        if (this.settings.hideCancelled && this.settings.visibilityMode !== 'showAll') {
+        // Re-apply cancelled task filtering if enabled and hiding completed
+        if (this.settings.hideCancelled && this.settings.hideCompleted) {
             this.filterCancelledTasks();
         }
 
@@ -357,8 +385,8 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             // Always add edit icons to all tasks
             this.addEditIconsToTasks(list);
 
-            // Only add completion messages if not in showAll mode
-            if (this.settings.visibilityMode !== 'showAll') {
+            // Only add completion messages if hiding completed tasks
+            if (this.settings.hideCompleted) {
                 if (this.isListFullyCompleted(list)) {
                     // Only show completion message if enabled in settings
                     if (this.settings.showCompletedMessage) {
@@ -1221,26 +1249,62 @@ class ToggleCompletedTasksSettingTab extends PluginSettingTab {
 
         containerEl.createEl('h2', { text: isGerman ? 'Toggle Completed Tasks Einstellungen' : 'Toggle Completed Tasks Settings' });
 
-        // Recent days setting
+        // Main toggle: Hide completed tasks
         new Setting(containerEl)
-            .setName(isGerman ? 'Tage für kürzlich erledigte Aufgaben' : 'Days for recently completed tasks')
+            .setName(isGerman ? 'Erledigte Aufgaben ausblenden' : 'Hide completed tasks')
             .setDesc(isGerman
-                ? 'Anzahl der Tage, für die erledigte Aufgaben im "Kürzlich erledigt" Modus angezeigt werden (basierend auf ✅ Datum).'
-                : 'Number of days to show completed tasks in "Recently completed" mode (based on ✅ date).')
-            .addDropdown(dropdown => dropdown
-                .addOption('1', '1')
-                .addOption('2', '2')
-                .addOption('3', '3')
-                .addOption('4', '4')
-                .addOption('5', '5')
-                .addOption('6', '6')
-                .addOption('7', '7')
-                .setValue(String(this.plugin.settings.recentDays))
+                ? 'Blendet alle erledigten Aufgaben ([x]) aus.'
+                : 'Hides all completed tasks ([x]).')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.hideCompleted)
                 .onChange(async (value) => {
-                    this.plugin.settings.recentDays = parseInt(value);
+                    this.plugin.settings.hideCompleted = value;
                     await this.plugin.saveSettings();
                     this.plugin.applyState();
+                    // Refresh settings display to show/hide dependent settings
+                    this.display();
                 }));
+
+        // Secondary toggle: Show recently completed (only visible when hideCompleted is true)
+        if (this.plugin.settings.hideCompleted) {
+            new Setting(containerEl)
+                .setName(isGerman ? 'Kürzlich erledigte anzeigen' : 'Show recently completed')
+                .setDesc(isGerman
+                    ? 'Zeigt Aufgaben an, die in den letzten X Tagen erledigt wurden (basierend auf ✅ Datum).'
+                    : 'Shows tasks that were completed in the last X days (based on ✅ date).')
+                .addToggle(toggle => toggle
+                    .setValue(this.plugin.settings.showRecentCompleted)
+                    .onChange(async (value) => {
+                        this.plugin.settings.showRecentCompleted = value;
+                        await this.plugin.saveSettings();
+                        this.plugin.applyState();
+                        // Refresh settings display to show/hide dependent settings
+                        this.display();
+                    }));
+
+            // Recent days setting (only visible when showRecentCompleted is true)
+            if (this.plugin.settings.showRecentCompleted) {
+                new Setting(containerEl)
+                    .setName(isGerman ? 'Anzahl Tage' : 'Number of days')
+                    .setDesc(isGerman
+                        ? 'Anzahl der Tage, für die erledigte Aufgaben angezeigt werden.'
+                        : 'Number of days to show completed tasks.')
+                    .addDropdown(dropdown => dropdown
+                        .addOption('1', '1')
+                        .addOption('2', '2')
+                        .addOption('3', '3')
+                        .addOption('4', '4')
+                        .addOption('5', '5')
+                        .addOption('6', '6')
+                        .addOption('7', '7')
+                        .setValue(String(this.plugin.settings.recentDays))
+                        .onChange(async (value) => {
+                            this.plugin.settings.recentDays = parseInt(value);
+                            await this.plugin.saveSettings();
+                            this.plugin.applyState();
+                        }));
+            }
+        }
 
         // Hide cancelled tasks
         new Setting(containerEl)
