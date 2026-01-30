@@ -106,6 +106,37 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                                 this.toggleRecentCompleted();
                             });
                     });
+
+                    // Days submenu (only when showRecentCompleted is enabled)
+                    if (this.settings.showRecentCompleted) {
+                        menu.addItem((item) => {
+                            item
+                                .setTitle(this.lang === 'de' ? '    Zeitraum ändern...' : '    Change days...')
+                                .setIcon('calendar')
+                                .onClick(() => {
+                                    // Show a submenu with day options
+                                    const daysMenu = new (require('obsidian').Menu)();
+                                    for (let d = 1; d <= 7; d++) {
+                                        const isSelected = this.settings.recentDays === d;
+                                        daysMenu.addItem((dayItem) => {
+                                            dayItem
+                                                .setTitle(isSelected
+                                                    ? `☑ ${d} ${this.lang === 'de' ? (d === 1 ? 'Tag' : 'Tage') : (d === 1 ? 'day' : 'days')}`
+                                                    : `☐ ${d} ${this.lang === 'de' ? (d === 1 ? 'Tag' : 'Tage') : (d === 1 ? 'day' : 'days')}`)
+                                                .onClick(async () => {
+                                                    this.settings.recentDays = d;
+                                                    await this.saveSettings();
+                                                    this.applyState();
+                                                    new Notice(this.lang === 'de'
+                                                        ? `Zeitraum: ${d} ${d === 1 ? 'Tag' : 'Tage'}`
+                                                        : `Period: ${d} ${d === 1 ? 'day' : 'days'}`);
+                                                });
+                                        });
+                                    }
+                                    daysMenu.showAtMouseEvent(event);
+                                });
+                        });
+                    }
                 }
             })
         );
