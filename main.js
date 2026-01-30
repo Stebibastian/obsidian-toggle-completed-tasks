@@ -70,14 +70,31 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         this.updateCSSMessage();
 
         // Add observers to update messages when content changes
-        this.registerDomEvent(document, 'click', () => {
-            setTimeout(() => this.updateCompletedMessages(), 50);
+        this.registerDomEvent(document, 'click', (evt) => {
+            // Check if a checkbox was clicked
+            const target = evt.target;
+            if (target && (target.type === 'checkbox' || target.closest('.task-list-item'))) {
+                // Checkbox click - apply state after a delay to let Obsidian update the file
+                setTimeout(() => this.applyState(), 100);
+                setTimeout(() => this.applyState(), 300); // Double-check after file save
+                setTimeout(() => this.applyState(), 600); // Triple-check for slow saves
+            } else {
+                setTimeout(() => this.updateCompletedMessages(), 50);
+            }
         });
 
         // Watch for task checkbox changes
         this.registerEvent(
             this.app.workspace.on('layout-change', () => {
-                setTimeout(() => this.updateCompletedMessages(), 50);
+                setTimeout(() => this.applyState(), 50);
+            })
+        );
+
+        // Watch for file modifications (when tasks are checked/unchecked)
+        this.registerEvent(
+            this.app.vault.on('modify', () => {
+                // Re-apply state when any file is modified (task toggled)
+                setTimeout(() => this.applyState(), 100);
             })
         );
 
