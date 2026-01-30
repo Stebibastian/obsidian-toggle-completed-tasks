@@ -74,6 +74,42 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             }
         });
 
+        // Add menu items to the file menu (3 dots menu)
+        this.registerEvent(
+            this.app.workspace.on('file-menu', (menu, file) => {
+                // Add separator
+                menu.addSeparator();
+
+                // Main toggle: Hide/Show completed tasks
+                menu.addItem((item) => {
+                    const isHiding = this.settings.hideCompleted;
+                    item
+                        .setTitle(isHiding
+                            ? (this.lang === 'de' ? '☑ Erledigte ausgeblendet' : '☑ Completed hidden')
+                            : (this.lang === 'de' ? '☐ Erledigte eingeblendet' : '☐ Completed visible'))
+                        .setIcon(isHiding ? 'eye-off' : 'eye')
+                        .onClick(() => {
+                            this.toggleCompletedTasks();
+                        });
+                });
+
+                // Secondary toggle: Show recently completed (only when hiding)
+                if (this.settings.hideCompleted) {
+                    menu.addItem((item) => {
+                        const showRecent = this.settings.showRecentCompleted;
+                        item
+                            .setTitle(showRecent
+                                ? (this.lang === 'de' ? `  ☑ Kürzlich erledigte (${this.settings.recentDays} Tage)` : `  ☑ Recently completed (${this.settings.recentDays} days)`)
+                                : (this.lang === 'de' ? '  ☐ Kürzlich erledigte anzeigen' : '  ☐ Show recently completed'))
+                            .setIcon(showRecent ? 'clock' : 'clock')
+                            .onClick(() => {
+                                this.toggleRecentCompleted();
+                            });
+                    });
+                }
+            })
+        );
+
         // Apply initial state
         this.applyState();
 
