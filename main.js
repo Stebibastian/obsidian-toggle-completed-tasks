@@ -20,7 +20,9 @@ const translations = {
         notificationHidden: 'Completed tasks: hidden',
         notificationVisible: 'Completed tasks: visible',
         notificationRecentVisible: 'Showing: open + recently completed',
-        allTasksCompleted: '-All tasks completed-'
+        allTasksCompleted: '-All tasks completed-',
+        markAllOpen: '↩ Mark all as open',
+        markedOpenNotice: 'tasks marked as open'
     },
     de: {
         ribbonTooltip: 'Erledigte Aufgaben ein/ausblenden',
@@ -28,7 +30,9 @@ const translations = {
         notificationHidden: 'Erledigte Aufgaben: ausgeblendet',
         notificationVisible: 'Erledigte Aufgaben: sichtbar',
         notificationRecentVisible: 'Zeige: offen + kürzlich erledigt',
-        allTasksCompleted: '-Alle Aufgaben erledigt-'
+        allTasksCompleted: '-Alle Aufgaben erledigt-',
+        markAllOpen: '↩ Alle als offen markieren',
+        markedOpenNotice: 'Aufgaben als offen markiert'
     }
 };
 
@@ -106,6 +110,41 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
 
         // Add settings tab
         this.addSettingTab(new ToggleCompletedTasksSettingTab(this.app, this));
+
+        // Watch for Tasks Plugin query results being added to the DOM
+        this.setupTasksQueryObserver();
+    }
+
+    setupTasksQueryObserver() {
+        // Create a MutationObserver to watch for Tasks Plugin query results
+        this.tasksQueryObserver = new MutationObserver((mutations) => {
+            let shouldUpdate = false;
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList') {
+                    // Check if any added nodes contain Tasks Plugin query results
+                    for (const node of mutation.addedNodes) {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            if (node.classList?.contains('plugin-tasks-query-result') ||
+                                node.querySelector?.('.plugin-tasks-query-result')) {
+                                shouldUpdate = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (shouldUpdate) break;
+            }
+            if (shouldUpdate) {
+                // Delay to ensure Tasks Plugin has finished rendering
+                setTimeout(() => this.addReopenLinksToTasksQueries(), 100);
+            }
+        });
+
+        // Start observing the document body
+        this.tasksQueryObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
     }
 
     detectLanguage() {
@@ -249,6 +288,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         document.querySelectorAll('.toggle-tasks-completion-message').forEach(el => el.remove());
         document.querySelectorAll('.toggle-tasks-add-task-link').forEach(el => el.remove());
         document.querySelectorAll('.toggle-tasks-edit-icon').forEach(el => el.remove());
+        document.querySelectorAll('.toggle-tasks-reopen-link').forEach(el => el.remove());
 
         // Clear recent-completed visibility classes
         document.querySelectorAll('.recent-completed-visible').forEach(el => el.classList.remove('recent-completed-visible'));
@@ -281,6 +321,62 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                     }
                 }
             }
+        });
+
+        // Add "Mark all as open" link to Tasks Plugin query results that have completed tasks
+        this.addReopenLinksToTasksQueries();
+    }
+
+    /**
+     * Add "Mark all as open" links to Tasks Plugin query results
+     */
+    addReopenLinksToTasksQueries() {
+        // Find all Tasks Plugin query result UL elements
+        // The structure is: .block-language-tasks > ul.plugin-tasks-query-result
+        const queryLists = document.querySelectorAll('ul.plugin-tasks-query-result');
+        console.log('Tasks Plugin: Found query lists:', queryLists.length);
+
+        queryLists.forEach((list, index) => {
+            // Find completed tasks in this query result
+            const completedTasks = list.querySelectorAll('.task-list-item.is-checked');
+            console.log(`List ${index}: Found ${completedTasks.length} completed tasks`);
+
+            // Only add the link if there are completed tasks
+            if (completedTasks.length === 0) return;
+
+            // Check if already has a reopen link (check after the list)
+            const nextSibling = list.nextElementSibling;
+            if (nextSibling && nextSibling.classList.contains('toggle-tasks-reopen-link')) return;
+
+            // Create the "Mark all as open" link
+            const reopenLink = document.createElement('a');
+            reopenLink.className = 'toggle-tasks-reopen-link';
+            reopenLink.textContent = this.t.markAllOpen;
+            reopenLink.href = '#';
+            reopenLink.style.cssText = 'display: block; color: #f59e0b; font-size: 0.85em; padding: 4px 0; margin-top: 4px; margin-bottom: 8px; cursor: pointer; text-decoration: none;';
+
+            // Add hover effect
+            reopenLink.addEventListener('mouseenter', () => {
+                reopenLink.style.textDecoration = 'underline';
+            });
+            reopenLink.addEventListener('mouseleave', () => {
+                reopenLink.style.textDecoration = 'none';
+            });
+
+            // Add click handler
+            reopenLink.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Get all completed task elements from this query list
+                const tasksToReopen = Array.from(list.querySelectorAll('.task-list-item.is-checked'));
+                console.log('Reopening tasks:', tasksToReopen.length);
+                await this.reopenTasks(tasksToReopen);
+            });
+
+            // Insert the link after the list
+            list.after(reopenLink);
+            console.log('Added reopen link after list', index);
         });
     }
 
@@ -797,8 +893,175 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         }
     }
 
+    /**
+     * Mark multiple tasks as open by removing checkmark and completion date
+     * @param {Array} taskElements - Array of task DOM elements from Tasks Plugin query
+     */
+    async reopenTasks(taskElements) {
+        if (!taskElements || taskElements.length === 0) return;
+
+        const { MarkdownView } = require('obsidian');
+
+        // Collect all unique files and their task modifications
+        const fileModifications = new Map();
+
+        for (const taskEl of taskElements) {
+            let filePath = null;
+
+            // Method 1: Try to find backlink with data-href attribute
+            const backlinkWithHref = taskEl.querySelector('a[data-href]');
+            if (backlinkWithHref) {
+                const href = backlinkWithHref.getAttribute('data-href');
+                if (href) {
+                    filePath = href.split('#')[0];
+                }
+            }
+
+            // Method 2: Try to extract file path from Tasks Plugin backlink text
+            if (!filePath) {
+                const tasksBacklink = taskEl.querySelector('.tasks-backlink a');
+                if (tasksBacklink) {
+                    const linkText = tasksBacklink.textContent || '';
+                    // Format is "Filename > Heading" or just "Filename"
+                    const fileNameMatch = linkText.split(' > ')[0].trim();
+                    if (fileNameMatch) {
+                        // Try to find the file by name
+                        const allFiles = this.app.vault.getMarkdownFiles();
+                        const matchingFile = allFiles.find(f =>
+                            f.basename === fileNameMatch ||
+                            f.path === fileNameMatch ||
+                            f.path === fileNameMatch + '.md'
+                        );
+                        if (matchingFile) {
+                            filePath = matchingFile.path;
+                        }
+                    }
+                }
+            }
+
+            // Method 3: Try to find file path from data attributes
+            if (!filePath) {
+                const listItem = taskEl.closest('li');
+                if (listItem) {
+                    const dataFile = listItem.getAttribute('data-task-file') ||
+                                    listItem.getAttribute('data-file');
+                    if (dataFile) filePath = dataFile;
+                }
+            }
+
+            if (!filePath) {
+                console.log('Could not find file path for task:', taskEl.textContent?.substring(0, 50));
+                continue;
+            }
+
+            console.log('Found file path:', filePath);
+
+            // Get the task description (text content without metadata)
+            const taskDescription = this.extractTaskDescription(taskEl);
+
+            if (!fileModifications.has(filePath)) {
+                fileModifications.set(filePath, []);
+            }
+            fileModifications.get(filePath).push(taskDescription);
+        }
+
+        let totalModified = 0;
+
+        // Process each file
+        for (const [filePath, taskDescriptions] of fileModifications) {
+            const file = this.app.vault.getAbstractFileByPath(filePath);
+            if (!file) continue;
+
+            let content = await this.app.vault.read(file);
+            let modified = false;
+
+            for (const taskDesc of taskDescriptions) {
+                // Find and modify the task line
+                const lines = content.split('\n');
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+
+                    // Check if this is a completed task that matches
+                    if (/^(\s*)-\s+\[[xX]\]/.test(line) && line.includes(taskDesc)) {
+                        // Replace [x] or [X] with [ ]
+                        let newLine = line.replace(/^(\s*-\s+)\[[xX]\]/, '$1[ ]');
+
+                        // Remove completion date (✅ YYYY-MM-DD)
+                        newLine = newLine.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, '');
+
+                        lines[i] = newLine;
+                        modified = true;
+                        totalModified++;
+                        break;
+                    }
+                }
+                content = lines.join('\n');
+            }
+
+            if (modified) {
+                await this.app.vault.modify(file, content);
+            }
+        }
+
+        if (totalModified > 0) {
+            new Notice(`${totalModified} ${this.t.markedOpenNotice}`);
+
+            // Refresh the view
+            setTimeout(() => this.updateCompletedMessages(), 200);
+        }
+    }
+
+    /**
+     * Extract the core task description from a Tasks Plugin query result element
+     */
+    extractTaskDescription(taskEl) {
+        // Clone to avoid modifying original
+        const clone = taskEl.cloneNode(true);
+
+        // Remove common Tasks Plugin elements
+        const elementsToRemove = [
+            '.task-backlink',
+            '.tasks-backlink',
+            '.task-due',
+            '.task-scheduled',
+            '.task-start',
+            '.task-created',
+            '.task-done',
+            '.task-priority',
+            '.task-recurrence',
+            '.task-tags',
+            '.toggle-tasks-edit-icon',
+            '.toggle-tasks-reopen-link',
+            'input[type="checkbox"]'
+        ];
+
+        elementsToRemove.forEach(selector => {
+            clone.querySelectorAll(selector).forEach(el => el.remove());
+        });
+
+        // Get remaining text and clean it up
+        let text = clone.textContent.trim();
+
+        // Remove common metadata patterns that might remain
+        text = text.replace(/📅\s*\d{4}-\d{2}-\d{2}/g, ''); // Due date
+        text = text.replace(/⏳\s*\d{4}-\d{2}-\d{2}/g, ''); // Scheduled
+        text = text.replace(/🛫\s*\d{4}-\d{2}-\d{2}/g, ''); // Start
+        text = text.replace(/➕\s*\d{4}-\d{2}-\d{2}/g, ''); // Created
+        text = text.replace(/✅\s*\d{4}-\d{2}-\d{2}/g, ''); // Done
+        text = text.replace(/🔁\s*[^\s]+/g, ''); // Recurrence
+        text = text.replace(/[⏫🔼🔽⏬]/g, ''); // Priority
+
+        return text.trim();
+    }
+
     onunload() {
         console.log('Unloading Toggle Completed Tasks Plugin');
+
+        // Stop the MutationObserver
+        if (this.tasksQueryObserver) {
+            this.tasksQueryObserver.disconnect();
+        }
+
         document.body.classList.remove('hide-completed-tasks');
         document.body.classList.remove('show-recent-completed-tasks');
 
