@@ -61,6 +61,33 @@ body.show-recent-completed-tasks .plugin-tasks-query-result .task-list-item {
     display: list-item !important;
 }
 
+/* ===== CANCELLED TASKS ===== */
+/* Hide cancelled tasks ([-] with ❌ date) when enabled */
+
+/* Reading View - hide cancelled tasks marked by JS */
+body.hide-cancelled-tasks .markdown-reading-view .task-list-item.cancelled-task-hidden {
+    display: none !important;
+}
+
+/* Reading View - hide cancelled tasks by data-task attribute */
+body.hide-cancelled-tasks .markdown-reading-view .task-list-item[data-task="-"] {
+    display: none !important;
+}
+
+/* Live Preview - hide cancelled tasks */
+body.hide-cancelled-tasks .markdown-source-view.mod-cm6 .HyperMD-task-line[data-task="-"] {
+    display: none !important;
+}
+
+/* Tasks Plugin Queries - always show cancelled tasks (filtered by query) */
+body.hide-cancelled-tasks .plugin-tasks-query-result .task-list-item[data-task="-"] {
+    display: list-item !important;
+}
+
+body.hide-cancelled-tasks .plugin-tasks-query-result .task-list-item.cancelled-task-hidden {
+    display: list-item !important;
+}
+
 /* ===== MESSAGES ===== */
 
 /* "All tasks completed" message - injected dynamically by main.js based on language */

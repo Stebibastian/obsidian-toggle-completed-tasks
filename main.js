@@ -5,6 +5,7 @@ const DEFAULT_SETTINGS = {
     hideCompleted: true,
     visibilityMode: 'hideCompleted', // 'showAll', 'hideCompleted', 'recentCompleted'
     recentDays: 3, // Days to show recently completed tasks (1-7)
+    hideCancelled: true, // Also hide cancelled tasks ([-] with ❌ date)
     autoCleanEmptyTasks: true,
     showEditIcons: true,
     showAddTaskLink: true,
@@ -206,6 +207,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         // Remove all visibility classes first
         body.classList.remove('hide-completed-tasks');
         body.classList.remove('show-recent-completed-tasks');
+        body.classList.remove('hide-cancelled-tasks');
 
         const mode = this.settings.visibilityMode;
 
@@ -215,6 +217,12 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             body.classList.add('show-recent-completed-tasks');
             // Filter tasks by completion date
             this.filterRecentCompletedTasks();
+        }
+
+        // Apply cancelled task filter if enabled (applies in both hideCompleted and recentCompleted modes)
+        if (this.settings.hideCancelled && mode !== 'showAll') {
+            body.classList.add('hide-cancelled-tasks');
+            this.filterCancelledTasks();
         }
 
         // Update completion messages
@@ -283,6 +291,25 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         });
     }
 
+    /**
+     * Filter cancelled tasks ([-] with ❌ date)
+     */
+    filterCancelledTasks() {
+        if (!this.settings.hideCancelled) return;
+
+        // Find all cancelled task items in Reading View
+        // Cancelled tasks have data-task="-"
+        const cancelledTasks = document.querySelectorAll('.markdown-reading-view .task-list-item[data-task="-"]');
+
+        cancelledTasks.forEach(task => {
+            // Skip tasks in Tasks Plugin query results
+            if (this.isInTasksQuery(task)) return;
+
+            // Hide the cancelled task
+            task.classList.add('cancelled-task-hidden');
+        });
+    }
+
     updateCompletedMessages() {
         // Remove old messages and icons
         document.querySelectorAll('.toggle-tasks-completion-message').forEach(el => el.remove());
@@ -293,10 +320,16 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         // Clear recent-completed visibility classes
         document.querySelectorAll('.recent-completed-visible').forEach(el => el.classList.remove('recent-completed-visible'));
         document.querySelectorAll('.recent-completed-hidden').forEach(el => el.classList.remove('recent-completed-hidden'));
+        document.querySelectorAll('.cancelled-task-hidden').forEach(el => el.classList.remove('cancelled-task-hidden'));
 
         // Re-apply recent completed filtering if in that mode
         if (this.settings.visibilityMode === 'recentCompleted') {
             this.filterRecentCompletedTasks();
+        }
+
+        // Re-apply cancelled task filtering if enabled and not in showAll mode
+        if (this.settings.hideCancelled && this.settings.visibilityMode !== 'showAll') {
+            this.filterCancelledTasks();
         }
 
         // Find all task lists in Reading View
@@ -1064,10 +1097,12 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
 
         document.body.classList.remove('hide-completed-tasks');
         document.body.classList.remove('show-recent-completed-tasks');
+        document.body.classList.remove('hide-cancelled-tasks');
 
         // Clean up recent-completed classes
         document.querySelectorAll('.recent-completed-visible').forEach(el => el.classList.remove('recent-completed-visible'));
         document.querySelectorAll('.recent-completed-hidden').forEach(el => el.classList.remove('recent-completed-hidden'));
+        document.querySelectorAll('.cancelled-task-hidden').forEach(el => el.classList.remove('cancelled-task-hidden'));
 
         // Remove injected style
         const style = document.getElementById('toggle-completed-tasks-i18n');
@@ -1108,6 +1143,20 @@ class ToggleCompletedTasksSettingTab extends PluginSettingTab {
                 .setValue(String(this.plugin.settings.recentDays))
                 .onChange(async (value) => {
                     this.plugin.settings.recentDays = parseInt(value);
+                    await this.plugin.saveSettings();
+                    this.plugin.applyState();
+                }));
+
+        // Hide cancelled tasks
+        new Setting(containerEl)
+            .setName(isGerman ? 'Gecancelte Aufgaben ausblenden' : 'Hide cancelled tasks')
+            .setDesc(isGerman
+                ? 'Blendet abgebrochene Aufgaben ([-] mit ❌ Datum) aus, wenn erledigte Aufgaben ausgeblendet sind.'
+                : 'Hides cancelled tasks ([-] with ❌ date) when completed tasks are hidden.')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.hideCancelled)
+                .onChange(async (value) => {
+                    this.plugin.settings.hideCancelled = value;
                     await this.plugin.saveSettings();
                     this.plugin.applyState();
                 }));
