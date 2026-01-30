@@ -56,6 +56,15 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         });
         ribbonIconEl.addClass('toggle-completed-tasks-ribbon');
 
+        // Add view action button (next to the 3-dots menu in title bar)
+        this.registerEvent(
+            this.app.workspace.on('layout-change', () => {
+                this.addViewActionButton();
+            })
+        );
+        // Also add on initial load
+        this.addViewActionButton();
+
         // Add command (for Command Palette)
         this.addCommand({
             id: 'toggle-completed-tasks',
@@ -211,6 +220,78 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         this.setupTasksQueryObserver();
     }
 
+    /**
+     * Add a button to the view title bar (next to the 3-dots menu)
+     */
+    addViewActionButton() {
+        const { MarkdownView } = require('obsidian');
+
+        // Get all markdown leaves
+        this.app.workspace.iterateAllLeaves((leaf) => {
+            if (leaf.view instanceof MarkdownView) {
+                const viewActionsEl = leaf.view.containerEl.querySelector('.view-actions');
+                if (!viewActionsEl) return;
+
+                // Check if button already exists
+                if (viewActionsEl.querySelector('.toggle-completed-tasks-btn')) return;
+
+                // Create the button
+                const btn = document.createElement('a');
+                btn.className = 'view-action clickable-icon toggle-completed-tasks-btn';
+                btn.setAttribute('aria-label', this.settings.hideCompleted
+                    ? (this.lang === 'de' ? 'Erledigte: ausgeblendet' : 'Completed: hidden')
+                    : (this.lang === 'de' ? 'Erledigte: sichtbar' : 'Completed: visible'));
+
+                // Set icon based on state
+                this.updateButtonIcon(btn);
+
+                // Add click handler
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.toggleCompletedTasks();
+                    // Update button after toggle
+                    this.updateAllViewActionButtons();
+                });
+
+                // Insert before the 3-dots menu (last element)
+                const moreOptionsBtn = viewActionsEl.querySelector('.view-action[aria-label="More options"]') ||
+                                       viewActionsEl.querySelector('.view-action:last-child');
+                if (moreOptionsBtn) {
+                    viewActionsEl.insertBefore(btn, moreOptionsBtn);
+                } else {
+                    viewActionsEl.appendChild(btn);
+                }
+            }
+        });
+    }
+
+    /**
+     * Update the icon of a view action button based on current state
+     */
+    updateButtonIcon(btn) {
+        // Clear existing content
+        btn.innerHTML = '';
+
+        // Use Obsidian's icon system
+        const iconName = this.settings.hideCompleted ? 'eye-off' : 'eye';
+        const { setIcon } = require('obsidian');
+        setIcon(btn, iconName);
+
+        // Update aria-label
+        btn.setAttribute('aria-label', this.settings.hideCompleted
+            ? (this.lang === 'de' ? 'Erledigte: ausgeblendet' : 'Completed: hidden')
+            : (this.lang === 'de' ? 'Erledigte: sichtbar' : 'Completed: visible'));
+    }
+
+    /**
+     * Update all view action buttons after state change
+     */
+    updateAllViewActionButtons() {
+        document.querySelectorAll('.toggle-completed-tasks-btn').forEach(btn => {
+            this.updateButtonIcon(btn);
+        });
+    }
+
     setupTasksQueryObserver() {
         // Create a MutationObserver to watch for Tasks Plugin query results
         this.tasksQueryObserver = new MutationObserver((mutations) => {
@@ -288,6 +369,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
 
         this.saveSettings();
         this.applyState();
+        this.updateAllViewActionButtons();
 
         new Notice(statusText);
     }
