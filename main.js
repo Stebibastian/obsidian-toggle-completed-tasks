@@ -1075,18 +1075,29 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
 
-                    // Check if this is a completed task that matches
-                    if (/^(\s*)-\s+\[[xX]\]/.test(line) && line.includes(taskDesc)) {
-                        // Replace [x] or [X] with [ ]
-                        let newLine = line.replace(/^(\s*-\s+)\[[xX]\]/, '$1[ ]');
+                    // Check if this is a completed task
+                    if (/^(\s*)-\s+\[[xX]\]/.test(line)) {
+                        // Normalize both strings for comparison:
+                        // - Remove markdown formatting (**bold**, *italic*, etc.)
+                        // - Remove extra whitespace
+                        // - Compare core text
+                        const normalizedLine = this.normalizeForComparison(line);
+                        const normalizedDesc = this.normalizeForComparison(taskDesc);
 
-                        // Remove completion date (✅ YYYY-MM-DD)
-                        newLine = newLine.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, '');
+                        // Check if the normalized description is found in the normalized line
+                        if (normalizedLine.includes(normalizedDesc) && normalizedDesc.length > 10) {
+                            console.log('Matched task:', taskDesc.substring(0, 50));
+                            // Replace [x] or [X] with [ ]
+                            let newLine = line.replace(/^(\s*-\s+)\[[xX]\]/, '$1[ ]');
 
-                        lines[i] = newLine;
-                        modified = true;
-                        totalModified++;
-                        break;
+                            // Remove completion date (✅ YYYY-MM-DD)
+                            newLine = newLine.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, '');
+
+                            lines[i] = newLine;
+                            modified = true;
+                            totalModified++;
+                            break;
+                        }
                     }
                 }
                 content = lines.join('\n');
@@ -1103,6 +1114,29 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             // Refresh the view
             setTimeout(() => this.updateCompletedMessages(), 200);
         }
+    }
+
+    /**
+     * Normalize a string for comparison by removing markdown formatting and extra whitespace
+     */
+    normalizeForComparison(text) {
+        return text
+            // Remove markdown bold/italic
+            .replace(/\*\*([^*]+)\*\*/g, '$1')
+            .replace(/\*([^*]+)\*/g, '$1')
+            .replace(/__([^_]+)__/g, '$1')
+            .replace(/_([^_]+)_/g, '$1')
+            // Remove markdown links [text](url) -> text
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+            // Remove task checkbox
+            .replace(/^(\s*)-\s+\[[xX ]\]\s*/, '')
+            // Remove dates and emojis
+            .replace(/[📅⏳🛫➕✅❌🔁⏫🔼🔽⏬]\s*\d{4}-\d{2}-\d{2}/g, '')
+            .replace(/[📅⏳🛫➕✅❌🔁⏫🔼🔽⏬]/g, '')
+            // Remove extra whitespace
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
     }
 
     /**
