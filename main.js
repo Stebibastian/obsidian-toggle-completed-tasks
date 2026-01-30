@@ -237,25 +237,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                                        viewActionsEl.querySelector('.view-action[aria-label="Mehr Optionen"]') ||
                                        viewActionsEl.querySelector('.view-action:last-child');
 
-                // === Button 1: Main toggle (eye) ===
-                if (!viewActionsEl.querySelector('.toggle-completed-tasks-btn')) {
-                    const btn = document.createElement('a');
-                    btn.className = 'view-action clickable-icon toggle-completed-tasks-btn';
-                    this.updateMainButtonIcon(btn);
-
-                    btn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        this.toggleCompletedTasks();
-                    });
-
-                    if (moreOptionsBtn) {
-                        viewActionsEl.insertBefore(btn, moreOptionsBtn);
-                    } else {
-                        viewActionsEl.appendChild(btn);
-                    }
-                }
-
-                // === Button 2: Recent toggle (calendar) - only when hiding completed ===
+                // === Button 1: Recent toggle (calendar) - only when hiding completed ===
                 const existingRecentBtn = viewActionsEl.querySelector('.toggle-recent-tasks-btn');
 
                 if (this.settings.hideCompleted) {
@@ -270,11 +252,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                             this.toggleRecentCompleted();
                         });
 
-                        // Insert after the main button
-                        const mainBtn = viewActionsEl.querySelector('.toggle-completed-tasks-btn');
-                        if (mainBtn && mainBtn.nextSibling) {
-                            viewActionsEl.insertBefore(recentBtn, mainBtn.nextSibling);
-                        } else if (moreOptionsBtn) {
+                        if (moreOptionsBtn) {
                             viewActionsEl.insertBefore(recentBtn, moreOptionsBtn);
                         } else {
                             viewActionsEl.appendChild(recentBtn);
@@ -287,6 +265,24 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                     // Remove the recent button if hideCompleted is false
                     if (existingRecentBtn) {
                         existingRecentBtn.remove();
+                    }
+                }
+
+                // === Button 2: Main toggle (eye) - always visible ===
+                if (!viewActionsEl.querySelector('.toggle-completed-tasks-btn')) {
+                    const btn = document.createElement('a');
+                    btn.className = 'view-action clickable-icon toggle-completed-tasks-btn';
+                    this.updateMainButtonIcon(btn);
+
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        this.toggleCompletedTasks();
+                    });
+
+                    if (moreOptionsBtn) {
+                        viewActionsEl.insertBefore(btn, moreOptionsBtn);
+                    } else {
+                        viewActionsEl.appendChild(btn);
                     }
                 }
             }
