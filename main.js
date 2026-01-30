@@ -50,12 +50,6 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         // Load settings
         await this.loadSettings();
 
-        // Add ribbon icon (eye symbol in sidebar)
-        const ribbonIconEl = this.addRibbonIcon('eye', this.t.ribbonTooltip, (evt) => {
-            this.toggleCompletedTasks();
-        });
-        ribbonIconEl.addClass('toggle-completed-tasks-ribbon');
-
         // Add view action button (next to the 3-dots menu in title bar)
         this.registerEvent(
             this.app.workspace.on('layout-change', () => {
@@ -82,73 +76,6 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                 this.toggleRecentCompleted();
             }
         });
-
-        // Add menu items to the file menu (3 dots menu)
-        this.registerEvent(
-            this.app.workspace.on('file-menu', (menu, file) => {
-                // Add separator
-                menu.addSeparator();
-
-                // Main toggle: Hide/Show completed tasks
-                menu.addItem((item) => {
-                    const isHiding = this.settings.hideCompleted;
-                    item
-                        .setTitle(isHiding
-                            ? (this.lang === 'de' ? '☑ Erledigte ausgeblendet' : '☑ Completed hidden')
-                            : (this.lang === 'de' ? '☐ Erledigte eingeblendet' : '☐ Completed visible'))
-                        .setIcon(isHiding ? 'eye-off' : 'eye')
-                        .onClick(() => {
-                            this.toggleCompletedTasks();
-                        });
-                });
-
-                // Secondary toggle: Show recently completed (only when hiding)
-                if (this.settings.hideCompleted) {
-                    menu.addItem((item) => {
-                        const showRecent = this.settings.showRecentCompleted;
-                        item
-                            .setTitle(showRecent
-                                ? (this.lang === 'de' ? `  ☑ Kürzlich erledigte (${this.settings.recentDays} Tage)` : `  ☑ Recently completed (${this.settings.recentDays} days)`)
-                                : (this.lang === 'de' ? '  ☐ Kürzlich erledigte anzeigen' : '  ☐ Show recently completed'))
-                            .setIcon(showRecent ? 'clock' : 'clock')
-                            .onClick(() => {
-                                this.toggleRecentCompleted();
-                            });
-                    });
-
-                    // Days submenu (only when showRecentCompleted is enabled)
-                    if (this.settings.showRecentCompleted) {
-                        menu.addItem((item) => {
-                            item
-                                .setTitle(this.lang === 'de' ? '    Zeitraum ändern...' : '    Change days...')
-                                .setIcon('calendar')
-                                .onClick(() => {
-                                    // Show a submenu with day options
-                                    const daysMenu = new (require('obsidian').Menu)();
-                                    for (let d = 1; d <= 7; d++) {
-                                        const isSelected = this.settings.recentDays === d;
-                                        daysMenu.addItem((dayItem) => {
-                                            dayItem
-                                                .setTitle(isSelected
-                                                    ? `☑ ${d} ${this.lang === 'de' ? (d === 1 ? 'Tag' : 'Tage') : (d === 1 ? 'day' : 'days')}`
-                                                    : `☐ ${d} ${this.lang === 'de' ? (d === 1 ? 'Tag' : 'Tage') : (d === 1 ? 'day' : 'days')}`)
-                                                .onClick(async () => {
-                                                    this.settings.recentDays = d;
-                                                    await this.saveSettings();
-                                                    this.applyState();
-                                                    new Notice(this.lang === 'de'
-                                                        ? `Zeitraum: ${d} ${d === 1 ? 'Tag' : 'Tage'}`
-                                                        : `Period: ${d} ${d === 1 ? 'day' : 'days'}`);
-                                                });
-                                        });
-                                    }
-                                    daysMenu.showAtMouseEvent(event);
-                                });
-                        });
-                    }
-                }
-            })
-        );
 
         // Apply initial state
         this.applyState();
@@ -237,53 +164,49 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                                        viewActionsEl.querySelector('.view-action[aria-label="Mehr Optionen"]') ||
                                        viewActionsEl.querySelector('.view-action:last-child');
 
-                // === Button 1: Recent toggle (calendar) - only when hiding completed ===
-                const existingRecentBtn = viewActionsEl.querySelector('.toggle-recent-tasks-btn');
+                let existingMainBtn = viewActionsEl.querySelector('.toggle-completed-tasks-btn');
+                let existingRecentBtn = viewActionsEl.querySelector('.toggle-recent-tasks-btn');
 
+                // Remove both buttons first to ensure correct order
+                if (existingMainBtn) existingMainBtn.remove();
+                if (existingRecentBtn) existingRecentBtn.remove();
+
+                // === Button 1: Recent toggle (calendar) - only when hiding completed, always FIRST (leftmost) ===
                 if (this.settings.hideCompleted) {
-                    // Add button if it doesn't exist
-                    if (!existingRecentBtn) {
-                        const recentBtn = document.createElement('a');
-                        recentBtn.className = 'view-action clickable-icon toggle-recent-tasks-btn';
-                        this.updateRecentButtonIcon(recentBtn);
+                    const recentBtn = document.createElement('a');
+                    recentBtn.className = 'view-action clickable-icon toggle-recent-tasks-btn';
+                    this.updateRecentButtonIcon(recentBtn);
 
-                        recentBtn.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            this.toggleRecentCompleted();
-                        });
-
-                        if (moreOptionsBtn) {
-                            viewActionsEl.insertBefore(recentBtn, moreOptionsBtn);
-                        } else {
-                            viewActionsEl.appendChild(recentBtn);
-                        }
-                    } else {
-                        // Update existing button
-                        this.updateRecentButtonIcon(existingRecentBtn);
-                    }
-                } else {
-                    // Remove the recent button if hideCompleted is false
-                    if (existingRecentBtn) {
-                        existingRecentBtn.remove();
-                    }
-                }
-
-                // === Button 2: Main toggle (eye) - always visible ===
-                if (!viewActionsEl.querySelector('.toggle-completed-tasks-btn')) {
-                    const btn = document.createElement('a');
-                    btn.className = 'view-action clickable-icon toggle-completed-tasks-btn';
-                    this.updateMainButtonIcon(btn);
-
-                    btn.addEventListener('click', (e) => {
+                    recentBtn.addEventListener('click', (e) => {
                         e.preventDefault();
-                        this.toggleCompletedTasks();
+                        this.toggleRecentCompleted();
                     });
 
                     if (moreOptionsBtn) {
-                        viewActionsEl.insertBefore(btn, moreOptionsBtn);
+                        viewActionsEl.insertBefore(recentBtn, moreOptionsBtn);
                     } else {
-                        viewActionsEl.appendChild(btn);
+                        viewActionsEl.appendChild(recentBtn);
                     }
+                    existingRecentBtn = recentBtn;
+                } else {
+                    existingRecentBtn = null;
+                }
+
+                // === Button 2: Main toggle (eye) - always visible, always AFTER calendar (closer to 3-dots) ===
+                const btn = document.createElement('a');
+                btn.className = 'view-action clickable-icon toggle-completed-tasks-btn';
+                this.updateMainButtonIcon(btn);
+
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.toggleCompletedTasks();
+                });
+
+                // Always insert before moreOptions (which puts it after calendar if calendar exists)
+                if (moreOptionsBtn) {
+                    viewActionsEl.insertBefore(btn, moreOptionsBtn);
+                } else {
+                    viewActionsEl.appendChild(btn);
                 }
             }
         });
