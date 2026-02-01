@@ -10,7 +10,8 @@ const DEFAULT_SETTINGS = {
     showEditIcons: true,
     showAddTaskLink: true,
     showCompletedMessage: true,
-    completedMessageClickable: true
+    completedMessageClickable: true,
+    enableTaskSorting: true       // Enable sorting tasks within categories
 };
 
 // Translations
@@ -19,9 +20,12 @@ const translations = {
         ribbonTooltip: 'Toggle Completed Tasks',
         commandName: 'Toggle completed tasks visibility',
         commandNameRecent: 'Toggle recently completed visibility',
+        commandNameSort: 'Sort tasks in current file',
         notificationHidden: 'Completed tasks: hidden',
         notificationVisible: 'Completed tasks: visible',
         notificationRecentVisible: 'Showing: open + recently completed',
+        notificationSorted: 'Tasks sorted',
+        notificationNoTasks: 'No tasks found to sort',
         allTasksCompleted: '-All tasks completed-',
         markAllOpen: '↩ Mark all as open',
         markedOpenNotice: 'tasks marked as open'
@@ -30,9 +34,12 @@ const translations = {
         ribbonTooltip: 'Erledigte Aufgaben ein/ausblenden',
         commandName: 'Erledigte Aufgaben ein/ausblenden',
         commandNameRecent: 'Kürzlich erledigte ein/ausblenden',
+        commandNameSort: 'Aufgaben in aktueller Datei sortieren',
         notificationHidden: 'Erledigte Aufgaben: ausgeblendet',
         notificationVisible: 'Erledigte Aufgaben: sichtbar',
         notificationRecentVisible: 'Zeige: offen + kürzlich erledigt',
+        notificationSorted: 'Aufgaben sortiert',
+        notificationNoTasks: 'Keine Aufgaben zum Sortieren gefunden',
         allTasksCompleted: '-Alle Aufgaben erledigt-',
         markAllOpen: '↩ Alle als offen markieren',
         markedOpenNotice: 'Aufgaben als offen markiert'
@@ -74,6 +81,15 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             name: this.t.commandNameRecent,
             callback: () => {
                 this.toggleRecentCompleted();
+            }
+        });
+
+        // Add command for sorting tasks
+        this.addCommand({
+            id: 'sort-tasks',
+            name: this.t.commandNameSort,
+            callback: () => {
+                this.sortTasksInCurrentFile();
             }
         });
 
@@ -166,12 +182,35 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
 
                 let existingMainBtn = viewActionsEl.querySelector('.toggle-completed-tasks-btn');
                 let existingRecentBtn = viewActionsEl.querySelector('.toggle-recent-tasks-btn');
+                let existingSortBtn = viewActionsEl.querySelector('.sort-tasks-btn');
 
-                // Remove both buttons first to ensure correct order
+                // Remove all buttons first to ensure correct order
                 if (existingMainBtn) existingMainBtn.remove();
                 if (existingRecentBtn) existingRecentBtn.remove();
+                if (existingSortBtn) existingSortBtn.remove();
 
-                // === Button 1: Recent toggle (calendar) - only when hiding completed, always FIRST (leftmost) ===
+                // === Button 1: Sort tasks (arrow-up-down) - only when sorting enabled ===
+                if (this.settings.enableTaskSorting) {
+                    const sortBtn = document.createElement('a');
+                    sortBtn.className = 'view-action clickable-icon sort-tasks-btn';
+                    this.updateSortButtonIcon(sortBtn);
+
+                    sortBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        this.sortTasksInCurrentFile();
+                    });
+
+                    if (moreOptionsBtn) {
+                        viewActionsEl.insertBefore(sortBtn, moreOptionsBtn);
+                    } else {
+                        viewActionsEl.appendChild(sortBtn);
+                    }
+                    existingSortBtn = sortBtn;
+                } else {
+                    existingSortBtn = null;
+                }
+
+                // === Button 2: Recent toggle (calendar) - only when hiding completed ===
                 if (this.settings.hideCompleted) {
                     const recentBtn = document.createElement('a');
                     recentBtn.className = 'view-action clickable-icon toggle-recent-tasks-btn';
@@ -192,7 +231,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                     existingRecentBtn = null;
                 }
 
-                // === Button 2: Main toggle (eye) - always visible, always AFTER calendar (closer to 3-dots) ===
+                // === Button 3: Main toggle (eye) - always visible, always AFTER calendar (closer to 3-dots) ===
                 const btn = document.createElement('a');
                 btn.className = 'view-action clickable-icon toggle-completed-tasks-btn';
                 this.updateMainButtonIcon(btn);
@@ -237,6 +276,18 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         btn.setAttribute('aria-label', this.settings.showRecentCompleted
             ? (this.lang === 'de' ? `Kürzlich erledigte: AN (${days} Tage)` : `Recently completed: ON (${days} days)`)
             : (this.lang === 'de' ? 'Kürzlich erledigte: AUS' : 'Recently completed: OFF'));
+    }
+
+    /**
+     * Update the sort button icon
+     */
+    updateSortButtonIcon(btn) {
+        const { setIcon } = require('obsidian');
+        btn.innerHTML = '';
+        setIcon(btn, 'arrow-up-down');
+        btn.setAttribute('aria-label', this.lang === 'de'
+            ? 'Aufgaben sortieren'
+            : 'Sort tasks');
     }
 
     /**
@@ -1323,6 +1374,174 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         return text.trim();
     }
 
+    /**
+     * Sort tasks in the current file
+     * Rules:
+     * - Tasks are sorted within categories (sections separated by empty lines or non-task text)
+     * - Completed tasks come first, sorted by completion date (oldest first)
+     * - Then open tasks, maintaining their original order (oldest/first in document at top)
+     */
+    async sortTasksInCurrentFile() {
+        if (!this.settings.enableTaskSorting) return;
+
+        const { MarkdownView } = require('obsidian');
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+
+        if (!activeView) {
+            new Notice(this.lang === 'de'
+                ? 'Keine aktive Notiz gefunden.'
+                : 'No active note found.');
+            return;
+        }
+
+        const file = activeView.file;
+        if (!file) return;
+
+        // Read file content
+        const content = await this.app.vault.read(file);
+        const lines = content.split('\n');
+
+        // Process the file and sort tasks within categories
+        const newLines = this.sortTasksInLines(lines);
+
+        // Check if anything changed
+        const newContent = newLines.join('\n');
+        if (newContent === content) {
+            new Notice(this.t.notificationNoTasks);
+            return;
+        }
+
+        // Save the modified content
+        await this.app.vault.modify(file, newContent);
+
+        new Notice(this.t.notificationSorted);
+
+        // Refresh the view
+        setTimeout(() => this.applyState(), 100);
+    }
+
+    /**
+     * Process lines and sort tasks within categories
+     * A category ends when:
+     * - An empty line is encountered
+     * - A line that doesn't start with "- " is encountered (non-task text)
+     */
+    sortTasksInLines(lines) {
+        const result = [];
+        let currentCategory = [];
+        let categoryIndent = null;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const trimmed = line.trim();
+
+            // Check if this is a task line (starts with "- [")
+            const isTaskLine = /^(\s*)-\s+\[.\]/.test(line);
+
+            // Check if this line starts a sub-list (more indentation than category)
+            const currentIndent = line.match(/^(\s*)/)[1].length;
+
+            if (isTaskLine) {
+                // Check if this is a new top-level category or continuing existing one
+                if (currentCategory.length === 0) {
+                    categoryIndent = currentIndent;
+                }
+
+                // If same or greater indent, part of current category
+                if (currentIndent >= categoryIndent || currentCategory.length === 0) {
+                    currentCategory.push({ line, index: i });
+                } else {
+                    // Different indent level - flush and start new
+                    if (currentCategory.length > 0) {
+                        const sorted = this.sortCategory(currentCategory);
+                        result.push(...sorted);
+                        currentCategory = [];
+                    }
+                    categoryIndent = currentIndent;
+                    currentCategory.push({ line, index: i });
+                }
+            } else if (trimmed === '' || !trimmed.startsWith('-')) {
+                // Empty line or non-task line - category boundary
+                if (currentCategory.length > 0) {
+                    const sorted = this.sortCategory(currentCategory);
+                    result.push(...sorted);
+                    currentCategory = [];
+                    categoryIndent = null;
+                }
+                result.push(line);
+            } else {
+                // Line starts with "-" but is not a task (e.g., regular list item)
+                // This is also a category boundary
+                if (currentCategory.length > 0) {
+                    const sorted = this.sortCategory(currentCategory);
+                    result.push(...sorted);
+                    currentCategory = [];
+                    categoryIndent = null;
+                }
+                result.push(line);
+            }
+        }
+
+        // Don't forget the last category
+        if (currentCategory.length > 0) {
+            const sorted = this.sortCategory(currentCategory);
+            result.push(...sorted);
+        }
+
+        return result;
+    }
+
+    /**
+     * Sort a category of tasks
+     * Returns sorted array of line strings
+     */
+    sortCategory(category) {
+        if (category.length <= 1) {
+            return category.map(item => item.line);
+        }
+
+        // Separate completed and open tasks
+        const completed = [];
+        const open = [];
+
+        for (const item of category) {
+            const line = item.line;
+            // Check if completed (has [x] or [X])
+            const isCompleted = /^(\s*)-\s+\[[xX]\]/.test(line);
+
+            if (isCompleted) {
+                // Extract completion date
+                const dateMatch = line.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
+                const completionDate = dateMatch ? new Date(dateMatch[1]) : null;
+                completed.push({
+                    line: item.line,
+                    index: item.index,
+                    date: completionDate
+                });
+            } else {
+                open.push({
+                    line: item.line,
+                    index: item.index
+                });
+            }
+        }
+
+        // Sort completed by date (oldest first, null dates go to the end of completed)
+        completed.sort((a, b) => {
+            if (a.date === null && b.date === null) return a.index - b.index;
+            if (a.date === null) return 1;
+            if (b.date === null) return -1;
+            return a.date - b.date;
+        });
+
+        // Open tasks maintain their original order (already in document order)
+        // No need to sort, they're in order by index
+
+        // Combine: completed first (oldest to newest), then open (original order)
+        const sorted = [...completed, ...open];
+        return sorted.map(item => item.line);
+    }
+
     onunload() {
         console.log('Unloading Toggle Completed Tasks Plugin');
 
@@ -1500,6 +1719,23 @@ class ToggleCompletedTasksSettingTab extends PluginSettingTab {
                     this.plugin.settings.completedMessageClickable = value;
                     await this.plugin.saveSettings();
                     this.plugin.updateCompletedMessages();
+                }));
+
+        // Section header for sorting
+        containerEl.createEl('h3', { text: isGerman ? 'Sortierung' : 'Sorting' });
+
+        // Enable task sorting
+        new Setting(containerEl)
+            .setName(isGerman ? 'Aufgaben-Sortierung aktivieren' : 'Enable task sorting')
+            .setDesc(isGerman
+                ? 'Zeigt einen Sortier-Button in der Titelleiste. Sortiert erledigte Aufgaben nach Erledigungsdatum (älteste zuerst), dann offene Aufgaben. Sortierung erfolgt nur innerhalb von Kategorien (getrennt durch Leerzeilen oder Nicht-Aufgaben-Text).'
+                : 'Shows a sort button in the title bar. Sorts completed tasks by completion date (oldest first), then open tasks. Sorting only happens within categories (separated by empty lines or non-task text).')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.enableTaskSorting)
+                .onChange(async (value) => {
+                    this.plugin.settings.enableTaskSorting = value;
+                    await this.plugin.saveSettings();
+                    this.plugin.addViewActionButton();
                 }));
     }
 }
