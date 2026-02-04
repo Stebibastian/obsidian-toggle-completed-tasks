@@ -11,7 +11,9 @@ const DEFAULT_SETTINGS = {
     showAddTaskLink: true,
     showCompletedMessage: true,
     completedMessageClickable: true,
-    enableTaskSorting: true       // Enable sorting tasks within categories
+    enableTaskSorting: true,      // Enable sorting tasks within categories
+    showViewActionButtons: true,  // Show/hide the view action buttons (eye, calendar, sort)
+    showNotifications: true       // Show toast notifications when toggling
 };
 
 // Translations
@@ -21,11 +23,14 @@ const translations = {
         commandName: 'Toggle completed tasks visibility',
         commandNameRecent: 'Toggle recently completed visibility',
         commandNameSort: 'Sort tasks in current file',
+        commandNameToggleButtons: 'Toggle view action buttons',
         notificationHidden: 'Completed tasks: hidden',
         notificationVisible: 'Completed tasks: visible',
         notificationRecentVisible: 'Showing: open + recently completed',
         notificationSorted: 'Tasks sorted',
         notificationNoTasks: 'No tasks found to sort',
+        notificationButtonsHidden: 'Task buttons: hidden',
+        notificationButtonsVisible: 'Task buttons: visible',
         allTasksCompleted: '-All tasks completed-',
         markAllOpen: '↩ Mark all as open',
         markedOpenNotice: 'tasks marked as open'
@@ -35,11 +40,14 @@ const translations = {
         commandName: 'Erledigte Aufgaben ein/ausblenden',
         commandNameRecent: 'Kürzlich erledigte ein/ausblenden',
         commandNameSort: 'Aufgaben in aktueller Datei sortieren',
+        commandNameToggleButtons: 'Ansichts-Buttons ein/ausblenden',
         notificationHidden: 'Erledigte Aufgaben: ausgeblendet',
         notificationVisible: 'Erledigte Aufgaben: sichtbar',
         notificationRecentVisible: 'Zeige: offen + kürzlich erledigt',
         notificationSorted: 'Aufgaben sortiert',
         notificationNoTasks: 'Keine Aufgaben zum Sortieren gefunden',
+        notificationButtonsHidden: 'Task-Buttons: ausgeblendet',
+        notificationButtonsVisible: 'Task-Buttons: sichtbar',
         allTasksCompleted: '-Alle Aufgaben erledigt-',
         markAllOpen: '↩ Alle als offen markieren',
         markedOpenNotice: 'Aufgaben als offen markiert'
@@ -90,6 +98,15 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             name: this.t.commandNameSort,
             callback: () => {
                 this.sortTasksInCurrentFile();
+            }
+        });
+
+        // Add command for toggling view action buttons visibility
+        this.addCommand({
+            id: 'toggle-view-buttons',
+            name: this.t.commandNameToggleButtons,
+            callback: () => {
+                this.toggleViewActionButtons();
             }
         });
 
@@ -164,6 +181,32 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
     }
 
     /**
+     * Show a notification if notifications are enabled
+     * @param {string} message - The message to display
+     * @param {boolean} isError - If true, always show (even if notifications disabled)
+     */
+    notify(message, isError = false) {
+        if (this.settings.showNotifications || isError) {
+            new Notice(message);
+        }
+    }
+
+    /**
+     * Toggle view action buttons visibility
+     */
+    toggleViewActionButtons() {
+        this.settings.showViewActionButtons = !this.settings.showViewActionButtons;
+        this.saveSettings();
+        this.addViewActionButton();
+
+        const statusText = this.settings.showViewActionButtons
+            ? this.t.notificationButtonsVisible
+            : this.t.notificationButtonsHidden;
+
+        this.notify(statusText);
+    }
+
+    /**
      * Add buttons to the view title bar (next to the 3-dots menu)
      */
     addViewActionButton() {
@@ -188,6 +231,9 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                 if (existingMainBtn) existingMainBtn.remove();
                 if (existingRecentBtn) existingRecentBtn.remove();
                 if (existingSortBtn) existingSortBtn.remove();
+
+                // If buttons should be hidden, stop here (buttons already removed)
+                if (!this.settings.showViewActionButtons) return;
 
                 // === Button 1: Sort tasks (arrow-up-down) - only when sorting enabled ===
                 if (this.settings.enableTaskSorting) {
@@ -385,7 +431,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         this.applyState();
         this.updateAllViewActionButtons();
 
-        new Notice(statusText);
+        this.notify(statusText);
     }
 
     toggleRecentCompleted() {
@@ -405,7 +451,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         this.applyState();
         this.updateAllViewActionButtons();
 
-        new Notice(statusText);
+        this.notify(statusText);
     }
 
     applyState() {
@@ -721,9 +767,9 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 
         if (!activeView) {
-            new Notice(this.lang === 'de'
+            this.notify(this.lang === 'de'
                 ? 'Keine aktive Notiz gefunden.'
-                : 'No active note found.');
+                : 'No active note found.', true);
             return;
         }
 
@@ -820,9 +866,9 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             }
         } else {
             console.error('Tasks plugin command not found');
-            new Notice(this.lang === 'de'
+            this.notify(this.lang === 'de'
                 ? 'Tasks Plugin ist nicht installiert.'
-                : 'Tasks Plugin is not installed.', 5000);
+                : 'Tasks Plugin is not installed.', true);
         }
     }
 
@@ -849,9 +895,9 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 
         if (!activeView) {
-            new Notice(this.lang === 'de'
+            this.notify(this.lang === 'de'
                 ? 'Keine aktive Notiz gefunden.'
-                : 'No active note found.');
+                : 'No active note found.', true);
             return;
         }
 
@@ -1063,9 +1109,9 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             }
         } else {
             console.error('Tasks plugin command not found');
-            new Notice(this.lang === 'de'
+            this.notify(this.lang === 'de'
                 ? 'Tasks Plugin ist nicht installiert.'
-                : 'Tasks Plugin is not installed.', 5000);
+                : 'Tasks Plugin is not installed.', true);
         }
     }
 
@@ -1301,7 +1347,7 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         }
 
         if (totalModified > 0) {
-            new Notice(`${totalModified} ${this.t.markedOpenNotice}`);
+            this.notify(`${totalModified} ${this.t.markedOpenNotice}`);
 
             // Refresh the view
             setTimeout(() => this.updateCompletedMessages(), 200);
@@ -1388,9 +1434,9 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 
         if (!activeView) {
-            new Notice(this.lang === 'de'
+            this.notify(this.lang === 'de'
                 ? 'Keine aktive Notiz gefunden.'
-                : 'No active note found.');
+                : 'No active note found.', true);
             return;
         }
 
@@ -1407,14 +1453,14 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
         // Check if anything changed
         const newContent = newLines.join('\n');
         if (newContent === content) {
-            new Notice(this.t.notificationNoTasks);
+            this.notify(this.t.notificationNoTasks, true);
             return;
         }
 
         // Save the modified content
         await this.app.vault.modify(file, newContent);
 
-        new Notice(this.t.notificationSorted);
+        this.notify(this.t.notificationSorted);
 
         // Refresh the view
         setTimeout(() => this.applyState(), 100);
@@ -1494,20 +1540,24 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
     /**
      * Sort a category of tasks
      * Returns sorted array of line strings
+     * Order: Completed (by ✅ date) → Cancelled (by ❌ date) → Open (by ➕ date)
      */
     sortCategory(category) {
         if (category.length <= 1) {
             return category.map(item => item.line);
         }
 
-        // Separate completed and open tasks
+        // Separate completed, cancelled, and open tasks
         const completed = [];
+        const cancelled = [];
         const open = [];
 
         for (const item of category) {
             const line = item.line;
             // Check if completed (has [x] or [X])
             const isCompleted = /^(\s*)-\s+\[[xX]\]/.test(line);
+            // Check if cancelled (has [-])
+            const isCancelled = /^(\s*)-\s+\[-\]/.test(line);
 
             if (isCompleted) {
                 // Extract completion date
@@ -1518,15 +1568,28 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
                     index: item.index,
                     date: completionDate
                 });
+            } else if (isCancelled) {
+                // Extract cancellation date (❌ YYYY-MM-DD)
+                const dateMatch = line.match(/❌\s*(\d{4}-\d{2}-\d{2})/);
+                const cancelDate = dateMatch ? new Date(dateMatch[1]) : null;
+                cancelled.push({
+                    line: item.line,
+                    index: item.index,
+                    date: cancelDate
+                });
             } else {
+                // Extract created date (➕ YYYY-MM-DD) for open tasks
+                const dateMatch = line.match(/➕\s*(\d{4}-\d{2}-\d{2})/);
+                const createdDate = dateMatch ? new Date(dateMatch[1]) : null;
                 open.push({
                     line: item.line,
-                    index: item.index
+                    index: item.index,
+                    date: createdDate
                 });
             }
         }
 
-        // Sort completed by date (oldest first, null dates go to the end of completed)
+        // Sort completed by date (oldest first, null dates go to the end)
         completed.sort((a, b) => {
             if (a.date === null && b.date === null) return a.index - b.index;
             if (a.date === null) return 1;
@@ -1534,11 +1597,24 @@ module.exports = class ToggleCompletedTasksPlugin extends Plugin {
             return a.date - b.date;
         });
 
-        // Open tasks maintain their original order (already in document order)
-        // No need to sort, they're in order by index
+        // Sort cancelled by date (oldest first, null dates go to the end)
+        cancelled.sort((a, b) => {
+            if (a.date === null && b.date === null) return a.index - b.index;
+            if (a.date === null) return 1;
+            if (b.date === null) return -1;
+            return a.date - b.date;
+        });
 
-        // Combine: completed first (oldest to newest), then open (original order)
-        const sorted = [...completed, ...open];
+        // Sort open tasks by created date ➕ (oldest first, null dates go to the end)
+        open.sort((a, b) => {
+            if (a.date === null && b.date === null) return a.index - b.index;
+            if (a.date === null) return 1;
+            if (b.date === null) return -1;
+            return a.date - b.date;
+        });
+
+        // Combine: completed (oldest to newest) → cancelled (oldest to newest) → open (original order)
+        const sorted = [...completed, ...cancelled, ...open];
         return sorted.map(item => item.line);
     }
 
@@ -1721,6 +1797,36 @@ class ToggleCompletedTasksSettingTab extends PluginSettingTab {
                     this.plugin.updateCompletedMessages();
                 }));
 
+        // Section header for UI
+        containerEl.createEl('h3', { text: isGerman ? 'Benutzeroberfläche' : 'User Interface' });
+
+        // Show notifications
+        new Setting(containerEl)
+            .setName(isGerman ? 'Benachrichtigungen anzeigen' : 'Show notifications')
+            .setDesc(isGerman
+                ? 'Zeigt Toast-Benachrichtigungen an (z.B. "Erledigte Aufgaben: sichtbar").'
+                : 'Shows toast notifications (e.g. "Completed tasks: visible").')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.showNotifications)
+                .onChange(async (value) => {
+                    this.plugin.settings.showNotifications = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        // Show view action buttons
+        new Setting(containerEl)
+            .setName(isGerman ? 'Ansichts-Buttons anzeigen' : 'Show view action buttons')
+            .setDesc(isGerman
+                ? 'Zeigt die Buttons (Auge, Kalender, Sortieren) in der Titelleiste an. Kann auch über den Befehl "Ansichts-Buttons ein/ausblenden" umgeschaltet werden.'
+                : 'Shows the buttons (eye, calendar, sort) in the title bar. Can also be toggled via the "Toggle view action buttons" command.')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.showViewActionButtons)
+                .onChange(async (value) => {
+                    this.plugin.settings.showViewActionButtons = value;
+                    await this.plugin.saveSettings();
+                    this.plugin.addViewActionButton();
+                }));
+
         // Section header for sorting
         containerEl.createEl('h3', { text: isGerman ? 'Sortierung' : 'Sorting' });
 
@@ -1728,8 +1834,8 @@ class ToggleCompletedTasksSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName(isGerman ? 'Aufgaben-Sortierung aktivieren' : 'Enable task sorting')
             .setDesc(isGerman
-                ? 'Zeigt einen Sortier-Button in der Titelleiste. Sortiert erledigte Aufgaben nach Erledigungsdatum (älteste zuerst), dann offene Aufgaben. Sortierung erfolgt nur innerhalb von Kategorien (getrennt durch Leerzeilen oder Nicht-Aufgaben-Text).'
-                : 'Shows a sort button in the title bar. Sorts completed tasks by completion date (oldest first), then open tasks. Sorting only happens within categories (separated by empty lines or non-task text).')
+                ? 'Zeigt einen Sortier-Button in der Titelleiste. Sortiert: Erledigte (nach ✅) → Gecancelte (nach ❌) → Offene (nach ➕). Sortierung erfolgt nur innerhalb von Kategorien (getrennt durch Leerzeilen oder Nicht-Aufgaben-Text).'
+                : 'Shows a sort button in the title bar. Sorts: Completed (by ✅) → Cancelled (by ❌) → Open (by ➕). Sorting only happens within categories (separated by empty lines or non-task text).')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.enableTaskSorting)
                 .onChange(async (value) => {
