@@ -4,7 +4,11 @@ An Obsidian plugin to easily show/hide completed tasks with one click.
 
 ## ✨ Features
 
-- **One-Click Toggle**: Show or hide completed tasks with a ribbon icon
+- **One-Click Toggle**: Show or hide completed tasks via title bar buttons or command palette
+- **Task Sorting**: Sort tasks automatically within categories — completed, cancelled, then open tasks — each sorted by date
+- **Title Bar Buttons**: Three configurable buttons (Sort ↕️, Recent 📅, Toggle 👁️) appear directly in the title bar next to the ⋮ menu
+- **Recently Completed**: Optionally show tasks completed within the last 1–7 days, even when completed tasks are hidden
+- **Hide Cancelled Tasks**: Automatically hide cancelled `[-]` tasks (with ❌ date) alongside completed tasks
 - **Customizable Settings**: Full control over all features via settings panel
 - **Edit Icons on Every Task**: 📝 icon appears next to each task in Reading View for quick editing
 - **Quick Task Creation**: Click on completion messages or task list links to instantly create new tasks via the Tasks Plugin modal
@@ -18,19 +22,46 @@ An Obsidian plugin to easily show/hide completed tasks with one click.
   - Shows clickable "-All tasks completed-" message when all tasks are done
   - Shows clickable "+ Create new task" link when tasks are still pending
 - **Automatic Cleanup**: Empty task lines (only checkbox, no text) are automatically removed when switching to Reading Mode
+- **Notifications**: Optional toast notifications when toggling task visibility
 - **Command Palette**: Also accessible via Command Palette
 
 ## 🎯 Usage
 
+### Title Bar Buttons
+
+The plugin adds up to three buttons in the title bar, positioned next to the ⋮ menu (right side). From left to right:
+
+| Button | Icon | Function | Visible when |
+|--------|------|----------|--------------|
+| **Sort** | ↕️ (arrow-up-down) | Sort tasks within categories | "Enable task sorting" is ON |
+| **Recent** | 📅 (calendar) | Toggle recently completed tasks | "Hide completed tasks" is ON |
+| **Toggle** | 👁️ (eye) | Show/hide completed tasks | Always (closest to ⋮ menu) |
+
+All buttons can be hidden via the **"Show view action buttons"** setting or the **"Toggle view action buttons"** command.
+
+### Task Sorting
+
+When enabled, the sort button (↕️) sorts tasks **within each category** (categories are separated by empty lines or non-task text). The sort order is:
+
+1. **Open tasks** — sorted by ➕ creation date (original order preserved)
+2. **Cancelled tasks** `[-]` — sorted by ❌ date, oldest first
+3. **Completed tasks** `[x]` — sorted by ✅ date, oldest first
+
+This keeps your open tasks at the top and moves finished tasks to the bottom of each category.
+
 ### Toggle Completed Tasks
 
-#### Ribbon Icon (recommended)
-Click the 👁️ eye icon in the left sidebar to toggle between hiding/showing completed tasks.
+#### Title Bar (recommended)
+Click the 👁️ eye button in the title bar to toggle between hiding/showing completed tasks.
 
 #### Command Palette
 1. Press `Cmd+P` (Mac) or `Ctrl+P` (Windows/Linux)
 2. Type "Toggle Completed Tasks"
 3. Select the command
+
+### Recently Completed Tasks
+
+When "Hide completed tasks" is active, you can still show tasks that were completed within the last 1–7 days. Toggle this via the 📅 calendar button in the title bar. The number of days is configurable in settings.
 
 ### Edit Tasks with One Click (New!)
 
@@ -72,15 +103,35 @@ Empty task lines (containing only `- [ ]` or `- [x]` with no text) are automatic
 
 ## ⚙️ Settings
 
-Customize the plugin behavior in Settings → Community Plugins → Toggle Completed Tasks:
+Customize the plugin behavior in **Settings → Community Plugins → Toggle Completed Tasks**.
+All settings are enabled by default.
 
-- **Auto-clean empty tasks** (default: ON) - Automatically removes empty task lines when switching to Reading Mode
-- **Show edit icons** (default: ON) - Shows 📝 icon next to each task for quick editing
-- **Show "Create new task" link** (default: ON) - Shows clickable link to add new tasks when incomplete tasks exist
-- **Show "All tasks completed" message** (default: ON) - Shows message when all tasks in a list are completed
-- **Make "All tasks completed" message clickable** (default: ON) - Makes the completion message clickable to add new tasks
+### Task Visibility
 
-All settings are enabled by default. You can disable any feature you don't need.
+| Setting | Default | Description |
+|---------|---------|-------------|
+| **Hide completed tasks** | ON | Hides all completed `[x]` tasks |
+| **Show recently completed** | OFF | Shows tasks completed in the last X days (requires "Hide completed") |
+| **Number of days** | 3 | How many days back to show recently completed tasks (1–7) |
+| **Hide cancelled tasks** | ON | Hides cancelled `[-]` tasks (with ❌ date) when completed tasks are hidden |
+
+### Task Management
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| **Auto-clean empty tasks** | ON | Removes empty task lines when switching to Reading Mode |
+| **Show edit icons** | ON | Shows 📝 icon next to each task for quick editing |
+| **Show "Create new task" link** | ON | Shows clickable link to add new tasks when incomplete tasks exist |
+| **Show "All tasks completed" message** | ON | Shows message when all tasks in a list are completed |
+| **Make "All tasks completed" clickable** | ON | Makes the completion message clickable to add new tasks |
+
+### User Interface
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| **Enable task sorting** | ON | Shows sort button (↕️) in title bar |
+| **Show view action buttons** | ON | Shows all buttons (👁️ 📅 ↕️) in the title bar |
+| **Show notifications** | ON | Shows toast notifications when toggling visibility |
 
 ## 🔧 How it Works
 
